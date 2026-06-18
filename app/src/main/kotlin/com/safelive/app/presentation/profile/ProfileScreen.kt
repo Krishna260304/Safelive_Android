@@ -31,6 +31,7 @@ import com.safelive.app.navigation.Screen
 import com.safelive.app.presentation.auth.SafeLiveTextField
 import com.safelive.app.ui.theme.PrimaryBlue
 import com.safelive.app.ui.theme.SecondaryTeal
+import com.safelive.app.ui.theme.SuccessGreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -389,6 +390,19 @@ fun EditProfileScreen(
                 label = "Pincode",
                 keyboardType = KeyboardType.Number
             )
+            if (uiState.isCheckingPincode) {
+                Text(
+                    text = "Checking pincode...",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.Gray
+                )
+            } else if (!uiState.pincodeLookupMessage.isNullOrBlank()) {
+                Text(
+                    text = uiState.pincodeLookupMessage!!,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (uiState.isPincodeValid) SuccessGreen else MaterialTheme.colorScheme.error
+                )
+            }
 
             if (uiState.error != null) {
                 Text(uiState.error!!, color = MaterialTheme.colorScheme.error)

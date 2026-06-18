@@ -25,6 +25,14 @@ object ValidationUtils {
         return name.trim().length >= 2
     }
 
+    fun isValidPincode(pincode: String): Boolean {
+        return pincode.trim().matches(Regex("^\\d{6}$"))
+    }
+
+    fun digitsOnly(value: String, maxLength: Int): String {
+        return value.filter { it.isDigit() }.take(maxLength)
+    }
+
     fun isValidOtp(otp: String): Boolean {
         return otp.matches(Regex("^\\d{6}$"))
     }
@@ -72,6 +80,14 @@ object ValidationUtils {
         return when {
             name.isBlank() -> ValidationResult(false, "Name is required")
             name.trim().length < 2 -> ValidationResult(false, "Name must be at least 2 characters")
+            else -> ValidationResult(true)
+        }
+    }
+
+    fun validatePincode(pincode: String): ValidationResult {
+        return when {
+            pincode.isBlank() -> ValidationResult(false, "Pincode is required")
+            !isValidPincode(pincode) -> ValidationResult(false, "Enter a valid 6-digit pincode")
             else -> ValidationResult(true)
         }
     }

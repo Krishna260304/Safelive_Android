@@ -3,11 +3,14 @@ package com.safelive.app.presentation.auth
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.safelive.app.domain.model.User
+import com.safelive.app.domain.repository.PincodeRepository
 import com.safelive.app.domain.usecase.auth.*
 import com.safelive.app.utils.Resource
+import com.safelive.app.utils.ValidationUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 import javax.inject.Inject
 
 data class LoginUiState(
@@ -59,7 +62,7 @@ class LoginViewModel @Inject constructor(
     }
 
     fun onEmailChange(email: String) = _uiState.update { it.copy(email = email, error = null) }
-    fun onPhoneChange(phone: String) = _uiState.update { it.copy(phone = phone, error = null) }
+    fun onPhoneChange(phone: String) = _uiState.update { it.copy(phone = ValidationUtils.digitsOnly(phone, 10), error = null) }
     fun onPasswordChange(password: String) = _uiState.update { it.copy(password = password, error = null) }
     fun togglePasswordVisibility() = _uiState.update { it.copy(isPasswordVisible = !it.isPasswordVisible) }
     fun onLoginModeChange(mode: String) = _uiState.update { it.copy(loginMode = mode) }
@@ -109,6 +112,9 @@ data class RegisterUiState(
     val phone: String = "",
     val address: String = "",
     val pincode: String = "",
+    val pincodeLookupMessage: String? = null,
+    val isCheckingPincode: Boolean = false,
+    val isPincodeValid: Boolean = false,
     val password: String = "",
     val confirmPassword: String = "",
     val userType: String = "local",
@@ -120,17 +126,59 @@ data class RegisterUiState(
 
 @HiltViewModel
 class RegisterViewModel @Inject constructor(
-    private val registerUseCase: RegisterUseCase
+    private val registerUseCase: RegisterUseCase,
+    private val pincodeRepository: PincodeRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RegisterUiState())
     val uiState: StateFlow<RegisterUiState> = _uiState.asStateFlow()
 
+    private var pincodeLookupJob: Job? = null
+
     fun onFullNameChange(name: String) = _uiState.update { it.copy(fullName = name, error = null) }
     fun onEmailChange(email: String) = _uiState.update { it.copy(email = email, error = null) }
-    fun onPhoneChange(phone: String) = _uiState.update { it.copy(phone = phone, error = null) }
+    fun onPhoneChange(phone: String) = _uiState.update { it.copy(phone = ValidationUtils.digitsOnly(phone, 10), error = null) }
     fun onAddressChange(address: String) = _uiState.update { it.copy(address = address, error = null) }
-    fun onPincodeChange(pincode: String) = _uiState.update { it.copy(pincode = pincode, error = null) }
+    fun onPincodeChange(pincode: String) {
+        _uiState.update {
+            it.copy(
+                pincode = pincode,
+                error = null,
+                pincodeLookupMessage = null,
+                isCheckingPincode = false,
+                isPincodeValid = false
+            )
+        }
+
+        pincodeLookupJob?.cancel()
+        val trimmedPincode = ValidationUtils.digitsOnly(pincode, 6)
+        _uiState.update { it.copy(pincode = trimmedPincode) }
+        if (trimmedPincode.length == 6 && ValidationUtils.isValidPincode(trimmedPincode)) {
+            pincodeLookupJob = viewModelScope.launch {
+                _uiState.update { it.copy(isCheckingPincode = true) }
+                when (val result = pincodeRepository.lookupPincode(trimmedPincode)) {
+                    is Resource.Success -> _uiState.update {
+                        it.copy(
+                            isCheckingPincode = false,
+                            pincodeLookupMessage = result.data,
+                            isPincodeValid = true,
+                            error = null
+                        )
+                    }
+
+                    is Resource.Error -> _uiState.update {
+                        it.copy(
+                            isCheckingPincode = false,
+                            pincodeLookupMessage = result.message,
+                            isPincodeValid = false
+                        )
+                    }
+
+                    Resource.Loading -> Unit
+                }
+            }
+        }
+    }
     fun onPasswordChange(password: String) = _uiState.update { it.copy(password = password, error = null) }
     fun onConfirmPasswordChange(confirm: String) = _uiState.update { it.copy(confirmPassword = confirm, error = null) }
     fun onUserTypeChange(type: String) = _uiState.update { it.copy(userType = type) }
@@ -138,8 +186,27 @@ class RegisterViewModel @Inject constructor(
 
     fun register() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
             val state = _uiState.value
+            when {
+                !ValidationUtils.isValidPhone(state.phone) -> {
+                    _uiState.update { it.copy(error = "Enter a valid 10-digit mobile number") }
+                    return@launch
+                }
+                state.pincode.isNotBlank() && !ValidationUtils.isValidPincode(state.pincode) -> {
+                    _uiState.update { it.copy(error = "Enter a valid 6-digit pincode") }
+                    return@launch
+                }
+                state.pincode.trim().length == 6 && state.isCheckingPincode -> {
+                    _uiState.update { it.copy(error = "Please wait for pincode validation") }
+                    return@launch
+                }
+                state.pincode.trim().length == 6 && !state.isPincodeValid -> {
+                    _uiState.update { it.copy(error = state.pincodeLookupMessage ?: "Please validate the pincode") }
+                    return@launch
+                }
+            }
+
+            _uiState.update { it.copy(isLoading = true, error = null) }
             val result = registerUseCase(
                 state.fullName, state.email, state.phone,
                 state.password, state.confirmPassword, state.userType,

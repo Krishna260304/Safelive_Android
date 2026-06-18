@@ -11,6 +11,9 @@ interface ProfileApi {
     @PUT("users/profile")
     suspend fun updateProfile(@Body request: Map<String, String>): ApiResponse<UserDto>
 
+    @POST("users/managed-officials")
+    suspend fun createManagedOfficial(@Body request: Map<String, String>): ApiResponse<UserDto>
+
     @Multipart
     @PUT("users/profile/picture")
     suspend fun uploadProfilePicture(

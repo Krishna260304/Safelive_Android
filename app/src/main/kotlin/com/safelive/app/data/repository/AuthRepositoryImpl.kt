@@ -20,10 +20,7 @@ class AuthRepositoryImpl @Inject constructor(
             val response = authApi.login(request)
             if (response.success && response.data != null) {
                 dataStore.saveAuthToken(response.data.token)
-                dataStore.saveUserType(response.data.user.userType)
-                response.data.user.officialRole?.let { dataStore.saveOfficialRole(it) }
-                dataStore.saveUserId(response.data.user.id)
-                dataStore.saveUserName(response.data.user.fullName.orEmpty())
+                dataStore.saveUserProfile(response.data.user.toDomain())
                 Resource.Success(response.data.user.toDomain())
             } else {
                 Resource.Error(response.error ?: "Login failed")
@@ -55,21 +52,11 @@ class AuthRepositoryImpl @Inject constructor(
                 "pincode" to pincode
             )
             val response = authApi.register(request)
-            if (response.success) {
+            if (response.success && response.data != null) {
+                dataStore.saveAuthToken(response.data.token)
+                dataStore.saveUserProfile(response.data.user.toDomain())
                 Resource.Success(
-                    User(
-                        id = response.data?.userId ?: "",
-                        email = email,
-                        phone = mobile,
-                        fullName = fullName,
-                        userType = userType,
-                        officialRole = null,
-                        workerSpecialization = null,
-                        address = address,
-                        pincode = pincode,
-                        createdAt = null,
-                        isVerified = false
-                    )
+                    response.data.user.toDomain()
                 )
             } else {
                 Resource.Error(response.error ?: "Registration failed")

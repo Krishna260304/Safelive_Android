@@ -186,7 +186,7 @@ class CreateIncidentViewModel @Inject constructor(
     fun onCategoryChange(cat: String) = _uiState.update { it.copy(category = cat) }
     fun onPriorityChange(priority: String) = _uiState.update { it.copy(priority = priority) }
     fun onLocationChange(location: String) = _uiState.update { it.copy(location = location) }
-    fun onPincodeChange(pincode: String) = _uiState.update { it.copy(pincode = pincode) }
+    fun onPincodeChange(pincode: String) = _uiState.update { it.copy(pincode = com.safelive.app.utils.ValidationUtils.digitsOnly(pincode, 6)) }
 
     fun setLocation(latitude: Double, longitude: Double, location: String) {
         _uiState.update { it.copy(latitude = latitude, longitude = longitude, location = location, isGpsLoading = false) }
@@ -221,8 +221,13 @@ class CreateIncidentViewModel @Inject constructor(
 
     fun createIncident() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
             val state = _uiState.value
+            if (state.pincode.isNotBlank() && !com.safelive.app.utils.ValidationUtils.isValidPincode(state.pincode)) {
+                _uiState.update { it.copy(isLoading = false, error = "Pincode must be a 6-digit number") }
+                return@launch
+            }
+
+            _uiState.update { it.copy(isLoading = true, error = null) }
             val result = createIncidentUseCase(
                 title = state.title,
                 description = state.description,

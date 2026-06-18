@@ -130,5 +130,9 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    fun providePincodeApi(retrofit: Retrofit): PincodeApi = retrofit.create(PincodeApi::class.java)
+
+    @Provides
+    @Singleton
     fun provideTicketApi(retrofit: Retrofit): TicketApi = retrofit.create(TicketApi::class.java)
 }

@@ -1,6 +1,9 @@
 package com.safelive.app.presentation.profile
 
+import android.Manifest
+import android.os.Build
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
@@ -10,6 +13,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.rememberPermissionState
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -24,6 +29,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.google.accompanist.permissions.PermissionStatus
 
 data class NotificationSettingsUiState(
     val pushNotificationsEnabled: Boolean = true,
@@ -64,13 +70,31 @@ class NotificationSettingsViewModel @Inject constructor(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
 fun NotificationSettingsScreen(
     navController: NavController,
     viewModel: NotificationSettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val notificationPermissionState =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            rememberPermissionState(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            null
+        }
+    val notificationPermissionGranted =
+        notificationPermissionState?.status is PermissionStatus.Granted
+
+    LaunchedEffect(uiState.pushNotificationsEnabled, notificationPermissionGranted) {
+        if (
+            uiState.pushNotificationsEnabled &&
+            notificationPermissionState != null &&
+            !notificationPermissionGranted
+        ) {
+            notificationPermissionState.launchPermissionRequest()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -92,6 +116,26 @@ fun NotificationSettingsScreen(
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            if (notificationPermissionState != null && !notificationPermissionGranted) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = PrimaryBlue.copy(alpha = 0.08f)),
+                    border = BorderStroke(1.dp, PrimaryBlue.copy(alpha = 0.25f))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("System permission needed", fontWeight = FontWeight.Bold)
+                        Text(
+                            "Allow notifications to receive incident updates and team alerts.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Button(onClick = { notificationPermissionState.launchPermissionRequest() }) {
+                            Text("Allow Notifications")
+                        }
+                    }
+                }
+            }
+
             Text(
                 text = "Notification Preferences",
                 style = MaterialTheme.typography.titleMedium,

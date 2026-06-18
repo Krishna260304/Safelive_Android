@@ -9,6 +9,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,17 +29,20 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.safelive.app.data.local.datastore.UserPreferencesDataStore
 import com.safelive.app.data.remote.api.ProfileApi
-import com.safelive.app.data.remote.api.AuthApi
 import com.safelive.app.data.remote.dto.UserDto
 import com.safelive.app.data.websocket.SocketEvent
 import com.safelive.app.data.websocket.WebSocketManager
+import com.safelive.app.domain.repository.PincodeRepository
 import com.safelive.app.ui.theme.SecondaryTeal
 import com.safelive.app.ui.theme.PrimaryBlue
 import com.safelive.app.ui.theme.SuccessGreen
 import com.safelive.app.ui.theme.PriorityCritical
+import com.safelive.app.utils.ValidationUtils
+import com.safelive.app.utils.toApiErrorMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 import retrofit2.HttpException
 import javax.inject.Inject
 
@@ -52,6 +56,9 @@ data class TeamManagementUiState(
     val email: String = "",
     val phone: String = "",
     val pincode: String = "",
+    val pincodeLookupMessage: String? = null,
+    val isCheckingPincode: Boolean = false,
+    val isPincodeValid: Boolean = false,
     val address: String = "",
     val tempPassword: String = "",
     val showPassword: Boolean = false,
@@ -68,26 +75,65 @@ data class TeamManagementUiState(
 @HiltViewModel
 class TeamManagementViewModel @Inject constructor(
     private val profileApi: ProfileApi,
-    private val authApi: AuthApi,
+    private val pincodeRepository: PincodeRepository,
     private val userPreferencesDataStore: UserPreferencesDataStore
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TeamManagementUiState())
     val uiState: StateFlow<TeamManagementUiState> = _uiState.asStateFlow()
 
+    private var pincodeLookupJob: Job? = null
+
     init { resolveAccess() }
 
     fun onRoleChange(role: String) = _uiState.update { it.copy(selectedRole = role, error = null, successMessage = null) }
     fun onFullNameChange(v: String) = _uiState.update { it.copy(fullName = v, error = null) }
     fun onEmailChange(v: String) = _uiState.update { it.copy(email = v, error = null) }
-    fun onPhoneChange(v: String) = _uiState.update { it.copy(phone = v) }
-    fun onPincodeChange(v: String) = _uiState.update { it.copy(pincode = v) }
+    fun onPhoneChange(v: String) = _uiState.update { it.copy(phone = ValidationUtils.digitsOnly(v, 10)) }
+    fun onPincodeChange(v: String) {
+        val trimmed = ValidationUtils.digitsOnly(v, 6)
+        _uiState.update {
+            it.copy(
+                pincode = trimmed,
+                pincodeLookupMessage = null,
+                isCheckingPincode = false,
+                isPincodeValid = false
+            )
+        }
+
+        if (trimmed.length == 6 && ValidationUtils.isValidPincode(trimmed)) {
+            pincodeLookupJob?.cancel()
+            pincodeLookupJob = viewModelScope.launch {
+                _uiState.update { it.copy(isCheckingPincode = true) }
+                when (val result = pincodeRepository.lookupPincode(trimmed)) {
+                    is com.safelive.app.utils.Resource.Success -> _uiState.update {
+                        it.copy(
+                            isCheckingPincode = false,
+                            pincodeLookupMessage = result.data,
+                            isPincodeValid = true,
+                            error = null
+                        )
+                    }
+
+                    is com.safelive.app.utils.Resource.Error -> _uiState.update {
+                        it.copy(
+                            isCheckingPincode = false,
+                            pincodeLookupMessage = result.message,
+                            isPincodeValid = false
+                        )
+                    }
+
+                    com.safelive.app.utils.Resource.Loading -> Unit
+                }
+            }
+        }
+    }
     fun onAddressChange(v: String) = _uiState.update { it.copy(address = v) }
     fun onTempPasswordChange(v: String) = _uiState.update { it.copy(tempPassword = v, error = null) }
     fun toggleShowPassword() = _uiState.update { it.copy(showPassword = !it.showPassword) }
 
     fun resetForm() = _uiState.update {
-        it.copy(fullName = "", email = "", phone = "", pincode = "", address = "", tempPassword = "", error = null, successMessage = null)
+        it.copy(fullName = "", email = "", phone = "", pincode = "", pincodeLookupMessage = null, isCheckingPincode = false, isPincodeValid = false, address = "", tempPassword = "", error = null, successMessage = null)
     }
 
     private fun isDepartmentRole(role: String?): Boolean {
@@ -157,27 +203,52 @@ class TeamManagementViewModel @Inject constructor(
 
     fun createOfficial() {
         val state = _uiState.value
-        if (state.fullName.isBlank() || state.email.isBlank() || state.tempPassword.isBlank()) {
-            _uiState.update { it.copy(error = "Full Name, Email and Password are required") }
+        when {
+            !ValidationUtils.isValidName(state.fullName) -> {
+                _uiState.update { it.copy(error = "Enter a valid full name") }
+                return
+            }
+            !ValidationUtils.isValidEmail(state.email) -> {
+                _uiState.update { it.copy(error = "Enter a valid email address") }
+                return
+            }
+            state.phone.isNotBlank() && !ValidationUtils.isValidPhone(state.phone) -> {
+                _uiState.update { it.copy(error = "Enter a valid 10-digit mobile number") }
+                return
+            }
+            !ValidationUtils.isValidPassword(state.tempPassword) -> {
+                _uiState.update { it.copy(error = "Password must be at least 8 characters and include letters and numbers") }
+                return
+            }
+            state.pincode.isNotBlank() && !ValidationUtils.isValidPincode(state.pincode) -> {
+                _uiState.update { it.copy(error = "Pincode must be a 6-digit number") }
+                return
+            }
+            state.pincode.trim().length == 6 && !state.isPincodeValid -> {
+                _uiState.update { it.copy(error = state.pincodeLookupMessage ?: "Please validate the pincode") }
+                return
+            }
+        }
+
+        if (state.selectedRole != "supervisor" && state.selectedRole != "field_inspector") {
+            _uiState.update { it.copy(error = "Select a valid official role") }
             return
         }
+
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null, successMessage = null) }
             try {
                 val body = mutableMapOf(
                     "name" to state.fullName,
-                    "fullName" to state.fullName,
                     "email" to state.email,
                     "password" to state.tempPassword,
-                    "role" to state.selectedRole,
-                    "officialRole" to state.selectedRole,
-                    "userType" to "official"
+                    "officialRole" to state.selectedRole
                 )
                 if (state.phone.isNotBlank()) body["phone"] = state.phone
                 if (state.pincode.isNotBlank()) body["pincode"] = state.pincode
                 if (state.address.isNotBlank()) body["address"] = state.address
 
-                val result = authApi.register(body)
+                val result = profileApi.createManagedOfficial(body)
                 if (result.success) {
                     _uiState.update {
                         it.copy(
@@ -191,11 +262,7 @@ class TeamManagementViewModel @Inject constructor(
                     _uiState.update { it.copy(isLoading = false, error = result.error ?: "Failed to create account") }
                 }
             } catch (e: Exception) {
-                val serverMessage = (e as? HttpException)
-                    ?.response()
-                    ?.errorBody()
-                    ?.string()
-                    ?.takeIf { it.isNotBlank() }
+                val serverMessage = e.toApiErrorMessage()
 
                 _uiState.update {
                     it.copy(
@@ -227,7 +294,7 @@ fun TeamManagementScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(Icons.Default.ArrowBack, null, tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = SecondaryTeal)
@@ -380,6 +447,21 @@ fun TeamManagementScreen(
                             modifier = Modifier.fillMaxWidth(0.5f),
                             shape = RoundedCornerShape(8.dp)
                         )
+                        if (uiState.isCheckingPincode) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Checking pincode...",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.Gray
+                            )
+                        } else if (!uiState.pincodeLookupMessage.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = uiState.pincodeLookupMessage!!,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (uiState.isPincodeValid) SuccessGreen else MaterialTheme.colorScheme.error
+                            )
+                        }
                     }
 
                     // Address
@@ -600,7 +682,7 @@ fun OfficialAlertsScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(Icons.Default.ArrowBack, null, tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White)
                     }
                 },
                 actions = {

@@ -22,6 +22,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.safelive.app.navigation.Screen
 import com.safelive.app.ui.theme.PrimaryBlue
+import com.safelive.app.ui.theme.SuccessGreen
 
 @Composable
 fun RegisterScreen(
@@ -145,6 +146,23 @@ fun RegisterScreen(
                             keyboardType = KeyboardType.Number,
                             modifier = Modifier.fillMaxWidth(0.5f).align(Alignment.Start)
                         )
+                        if (uiState.isCheckingPincode) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Checking pincode...",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.Gray,
+                                modifier = Modifier.align(Alignment.Start)
+                            )
+                        } else if (!uiState.pincodeLookupMessage.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = uiState.pincodeLookupMessage!!,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (uiState.isPincodeValid) SuccessGreen else MaterialTheme.colorScheme.error,
+                                modifier = Modifier.align(Alignment.Start)
+                            )
+                        }
                         Spacer(modifier = Modifier.height(12.dp))
 
                         OutlinedTextField(

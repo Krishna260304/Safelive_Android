@@ -9,12 +9,17 @@ class LoginUseCase @Inject constructor(
     private val authRepository: AuthRepository
 ) {
     suspend operator fun invoke(email: String, password: String): Resource<*> {
-        val emailValidation = ValidationUtils.validateEmail(email)
-        if (!emailValidation.isValid) return Resource.Error(emailValidation.errorMessage ?: "Invalid email")
+        val trimmedIdentifier = email.trim()
+        val identifierValidation = if (trimmedIdentifier.contains("@")) {
+            ValidationUtils.validateEmail(trimmedIdentifier)
+        } else {
+            ValidationUtils.validatePhone(trimmedIdentifier)
+        }
+        if (!identifierValidation.isValid) return Resource.Error(identifierValidation.errorMessage ?: "Invalid login identifier")
 
         if (password.isBlank()) return Resource.Error("Password is required")
 
-        return authRepository.login(email.trim(), password)
+        return authRepository.login(trimmedIdentifier, password)
     }
 }
 

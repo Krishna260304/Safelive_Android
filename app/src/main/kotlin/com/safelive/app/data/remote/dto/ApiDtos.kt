@@ -16,8 +16,8 @@ data class LoginResponse(
 )
 
 data class RegisterResponse(
-    val message: String,
-    val userId: String
+    val token: String,
+    val user: UserDto
 )
 
 data class RefreshTokenRequest(
@@ -26,7 +26,9 @@ data class RefreshTokenRequest(
 
 data class UserDto(
     val id: String,
+    @SerializedName(value = "email", alternate = ["emailAddress", "email_address", "userEmail"])
     val email: String,
+    @SerializedName(value = "phone", alternate = ["mobile", "mobileNumber", "phoneNumber", "contactNumber"])
     val phone: String?,
     @SerializedName(value = "fullName", alternate = ["name", "fullname"])
     val fullName: String?,

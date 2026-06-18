@@ -34,5 +34,9 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
+    abstract fun bindPincodeRepository(impl: PincodeRepositoryImpl): PincodeRepository
+
+    @Binds
+    @Singleton
     abstract fun bindOfficialRepository(impl: OfficialRepositoryImpl): OfficialRepository
 }

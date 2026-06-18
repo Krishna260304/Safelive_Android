@@ -77,6 +77,11 @@ interface ProfileRepository {
     suspend fun getProfile(): Resource<User>
     suspend fun updateProfile(fullName: String?, mobile: String?, address: String?, pincode: String?): Resource<User>
     suspend fun uploadProfilePicture(imagePath: String): Resource<User>
+    fun getCachedProfile(): Flow<User?>
+}
+
+interface PincodeRepository {
+    suspend fun lookupPincode(pincode: String): Resource<String>
 }
 
 interface OfficialRepository {
