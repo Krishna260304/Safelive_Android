@@ -1,0 +1,727 @@
+package com.safelive.app.presentation.official
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.foundation.text.KeyboardOptions as KO
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavController
+import com.safelive.app.data.local.datastore.UserPreferencesDataStore
+import com.safelive.app.data.remote.api.ProfileApi
+import com.safelive.app.data.remote.api.AuthApi
+import com.safelive.app.data.remote.dto.UserDto
+import com.safelive.app.data.websocket.SocketEvent
+import com.safelive.app.data.websocket.WebSocketManager
+import com.safelive.app.ui.theme.SecondaryTeal
+import com.safelive.app.ui.theme.PrimaryBlue
+import com.safelive.app.ui.theme.SuccessGreen
+import com.safelive.app.ui.theme.PriorityCritical
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import retrofit2.HttpException
+import javax.inject.Inject
+
+// ─────────────────────────────────────────────
+// TEAM MANAGEMENT
+// ─────────────────────────────────────────────
+
+data class TeamManagementUiState(
+    val selectedRole: String = "supervisor",
+    val fullName: String = "",
+    val email: String = "",
+    val phone: String = "",
+    val pincode: String = "",
+    val address: String = "",
+    val tempPassword: String = "",
+    val showPassword: Boolean = false,
+    val isLoading: Boolean = false,
+    val error: String? = null,
+    val successMessage: String? = null,
+    val teamMembers: List<UserDto> = emptyList(),
+    val isLoadingTeam: Boolean = false,
+    val detectedOfficialRole: String? = null,
+    val isDepartmentAccount: Boolean = false,
+    val isCheckingAccess: Boolean = true
+)
+
+@HiltViewModel
+class TeamManagementViewModel @Inject constructor(
+    private val profileApi: ProfileApi,
+    private val authApi: AuthApi,
+    private val userPreferencesDataStore: UserPreferencesDataStore
+) : ViewModel() {
+
+    private val _uiState = MutableStateFlow(TeamManagementUiState())
+    val uiState: StateFlow<TeamManagementUiState> = _uiState.asStateFlow()
+
+    init { resolveAccess() }
+
+    fun onRoleChange(role: String) = _uiState.update { it.copy(selectedRole = role, error = null, successMessage = null) }
+    fun onFullNameChange(v: String) = _uiState.update { it.copy(fullName = v, error = null) }
+    fun onEmailChange(v: String) = _uiState.update { it.copy(email = v, error = null) }
+    fun onPhoneChange(v: String) = _uiState.update { it.copy(phone = v) }
+    fun onPincodeChange(v: String) = _uiState.update { it.copy(pincode = v) }
+    fun onAddressChange(v: String) = _uiState.update { it.copy(address = v) }
+    fun onTempPasswordChange(v: String) = _uiState.update { it.copy(tempPassword = v, error = null) }
+    fun toggleShowPassword() = _uiState.update { it.copy(showPassword = !it.showPassword) }
+
+    fun resetForm() = _uiState.update {
+        it.copy(fullName = "", email = "", phone = "", pincode = "", address = "", tempPassword = "", error = null, successMessage = null)
+    }
+
+    private fun isDepartmentRole(role: String?): Boolean {
+        val normalized = role?.trim()?.lowercase().orEmpty()
+        return normalized.contains("department")
+    }
+
+    private fun resolveAccess() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isCheckingAccess = true, error = null) }
+            try {
+                val savedRole = userPreferencesDataStore.officialRole.firstOrNull()
+                val resolvedRole = if (savedRole.isNullOrBlank()) {
+                    val profileResult = profileApi.getProfile()
+                    val profileRole = profileResult.data?.officialRole ?: profileResult.data?.userType
+                    profileRole?.let { userPreferencesDataStore.saveOfficialRole(it) }
+                    profileRole
+                } else {
+                    savedRole
+                }
+
+                val isDepartment = isDepartmentRole(resolvedRole)
+                _uiState.update {
+                    it.copy(
+                        detectedOfficialRole = resolvedRole,
+                        isDepartmentAccount = isDepartment,
+                        isCheckingAccess = false,
+                        teamMembers = if (isDepartment) it.teamMembers else emptyList(),
+                        isLoadingTeam = false,
+                        error = if (isDepartment) null else "This feature is only available to department accounts"
+                    )
+                }
+
+                if (isDepartment) {
+                    loadTeamMembers()
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isCheckingAccess = false,
+                        error = e.localizedMessage ?: "Unable to verify department access"
+                    )
+                }
+            }
+        }
+    }
+
+    private fun loadTeamMembers() {
+        viewModelScope.launch {
+            if (!_uiState.value.isDepartmentAccount) {
+                _uiState.update { it.copy(isLoadingTeam = false) }
+                return@launch
+            }
+            _uiState.update { it.copy(isLoadingTeam = true) }
+            try {
+                val result = profileApi.getManagedOfficials()
+                if (result.success && result.data != null) {
+                    _uiState.update { it.copy(teamMembers = result.data, isLoadingTeam = false) }
+                } else {
+                    _uiState.update { it.copy(isLoadingTeam = false) }
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoadingTeam = false) }
+            }
+        }
+    }
+
+    fun createOfficial() {
+        val state = _uiState.value
+        if (state.fullName.isBlank() || state.email.isBlank() || state.tempPassword.isBlank()) {
+            _uiState.update { it.copy(error = "Full Name, Email and Password are required") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null, successMessage = null) }
+            try {
+                val body = mutableMapOf(
+                    "name" to state.fullName,
+                    "fullName" to state.fullName,
+                    "email" to state.email,
+                    "password" to state.tempPassword,
+                    "role" to state.selectedRole,
+                    "officialRole" to state.selectedRole,
+                    "userType" to "official"
+                )
+                if (state.phone.isNotBlank()) body["phone"] = state.phone
+                if (state.pincode.isNotBlank()) body["pincode"] = state.pincode
+                if (state.address.isNotBlank()) body["address"] = state.address
+
+                val result = authApi.register(body)
+                if (result.success) {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            successMessage = "${if (state.selectedRole == "supervisor") "Supervisor" else "Field Inspector"} account created successfully",
+                            fullName = "", email = "", phone = "", pincode = "", address = "", tempPassword = ""
+                        )
+                    }
+                    loadTeamMembers()
+                } else {
+                    _uiState.update { it.copy(isLoading = false, error = result.error ?: "Failed to create account") }
+                }
+            } catch (e: Exception) {
+                val serverMessage = (e as? HttpException)
+                    ?.response()
+                    ?.errorBody()
+                    ?.string()
+                    ?.takeIf { it.isNotBlank() }
+
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = serverMessage ?: e.localizedMessage ?: "Unknown error"
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TeamManagementScreen(
+    navController: NavController,
+    viewModel: TeamManagementViewModel = hiltViewModel()
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text("Team Management", color = Color.White, fontWeight = FontWeight.Bold)
+                        Text("Create and manage team accounts", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.8f))
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = { navController.navigateUp() }) {
+                        Icon(Icons.Default.ArrowBack, null, tint = Color.White)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = SecondaryTeal)
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            if (uiState.isCheckingAccess) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = SecondaryTeal)
+                    }
+                }
+            } else if (!uiState.isDepartmentAccount) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Access restricted", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(
+                            uiState.detectedOfficialRole?.let { "Detected role: $it" } ?: "We couldn't verify a department role for this session.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.Gray
+                        )
+                        Text(
+                            "Please sign in with a department account to create supervisor and field inspector accounts.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.Gray
+                        )
+                    }
+                }
+            }
+
+            if (!uiState.isCheckingAccess && uiState.isDepartmentAccount) {
+            // ── Create Official Account Card ──
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text("Create Official Account", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+
+                    // Role selector
+                    Text("Official Role", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("supervisor" to "Supervisor", "field_inspector" to "Field Inspector").forEach { (key, label) ->
+                            Button(
+                                onClick = { viewModel.onRoleChange(key) },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (uiState.selectedRole == key) SecondaryTeal else Color(0xFFE8F4F8),
+                                    contentColor = if (uiState.selectedRole == key) Color.White else SecondaryTeal
+                                )
+                            ) { Text(label, style = MaterialTheme.typography.labelMedium) }
+                        }
+                    }
+
+                    // Full Name & Email in a row
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Full Name", style = MaterialTheme.typography.labelSmall, color = Color.DarkGray)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            OutlinedTextField(
+                                value = uiState.fullName,
+                                onValueChange = viewModel::onFullNameChange,
+                                placeholder = { Text("Enter full name", style = MaterialTheme.typography.bodySmall, color = Color.Gray) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Email", style = MaterialTheme.typography.labelSmall, color = Color.DarkGray)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            OutlinedTextField(
+                                value = uiState.email,
+                                onValueChange = viewModel::onEmailChange,
+                                placeholder = { Text("official@safelive.in", style = MaterialTheme.typography.bodySmall, color = Color.Gray) },
+                                singleLine = true,
+                                keyboardOptions = KO(keyboardType = KeyboardType.Email),
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                        }
+                    }
+
+                    // Phone & Temp Password
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Phone (Optional)", style = MaterialTheme.typography.labelSmall, color = Color.DarkGray)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            OutlinedTextField(
+                                value = uiState.phone,
+                                onValueChange = viewModel::onPhoneChange,
+                                placeholder = { Text("9876543210", style = MaterialTheme.typography.bodySmall, color = Color.Gray) },
+                                singleLine = true,
+                                keyboardOptions = KO(keyboardType = KeyboardType.Phone),
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Temporary Password", style = MaterialTheme.typography.labelSmall, color = Color.DarkGray)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            OutlinedTextField(
+                                value = uiState.tempPassword,
+                                onValueChange = viewModel::onTempPasswordChange,
+                                placeholder = { Text("At least 8 chars", style = MaterialTheme.typography.bodySmall, color = Color.Gray) },
+                                singleLine = true,
+                                visualTransformation = if (uiState.showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                                trailingIcon = {
+                                    IconButton(onClick = viewModel::toggleShowPassword) {
+                                        Icon(if (uiState.showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility, null)
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                        }
+                    }
+
+                    // Pincode
+                    Column {
+                        Text("Pincode (Optional)", style = MaterialTheme.typography.labelSmall, color = Color.DarkGray)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        OutlinedTextField(
+                            value = uiState.pincode,
+                            onValueChange = viewModel::onPincodeChange,
+                            placeholder = { Text("751024", style = MaterialTheme.typography.bodySmall, color = Color.Gray) },
+                            singleLine = true,
+                            keyboardOptions = KO(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth(0.5f),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                    }
+
+                    // Address
+                    Column {
+                        Text("Address (Optional)", style = MaterialTheme.typography.labelSmall, color = Color.DarkGray)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        OutlinedTextField(
+                            value = uiState.address,
+                            onValueChange = viewModel::onAddressChange,
+                            placeholder = { Text("Office or area address", style = MaterialTheme.typography.bodySmall, color = Color.Gray) },
+                            minLines = 2,
+                            maxLines = 3,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                    }
+
+                    // Feedback
+                    if (uiState.error != null) {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(uiState.error!!, modifier = Modifier.padding(12.dp), color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    if (uiState.successMessage != null) {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = SuccessGreen.copy(alpha = 0.1f)),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.CheckCircle, null, tint = SuccessGreen, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(uiState.successMessage!!, color = SuccessGreen, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+
+                    // Buttons
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedButton(onClick = viewModel::resetForm, modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp)) {
+                            Icon(Icons.Default.Refresh, null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Reset")
+                        }
+                        Button(
+                            onClick = viewModel::createOfficial,
+                            enabled = !uiState.isLoading,
+                            modifier = Modifier.weight(2f),
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = SecondaryTeal)
+                        ) {
+                            if (uiState.isLoading) {
+                                CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
+                            } else {
+                                Icon(Icons.Default.PersonAdd, null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Create Account")
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── Added Supervisors / Field Inspectors ──
+            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+                Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Added Supervisors / Field Inspectors", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+
+                    if (uiState.isLoadingTeam) {
+                        Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = SecondaryTeal)
+                        }
+                    } else if (uiState.teamMembers.isEmpty()) {
+                        Text(
+                            "No supervisor or field inspector accounts created yet.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.Gray,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                    } else {
+                        uiState.teamMembers.forEach { member ->
+                            TeamMemberRow(member)
+                            HorizontalDivider()
+                        }
+                    }
+                }
+            }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TeamMemberRow(user: UserDto) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier.size(40.dp).background(SecondaryTeal.copy(alpha = 0.15f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = (user.fullName ?: "?").take(1).uppercase(),
+                fontWeight = FontWeight.Bold,
+                color = SecondaryTeal,
+                fontSize = 16.sp
+            )
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(user.fullName ?: "Unknown", fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyMedium)
+            Text(user.email, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+        }
+        val role = user.officialRole ?: user.userType ?: "official"
+        Surface(
+            color = SecondaryTeal.copy(alpha = 0.12f),
+            shape = RoundedCornerShape(100.dp)
+        ) {
+            Text(
+                text = role.replaceFirstChar { it.uppercase() },
+                style = MaterialTheme.typography.labelSmall,
+                color = SecondaryTeal,
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+            )
+        }
+    }
+}
+
+// ─────────────────────────────────────────────
+// OFFICIAL ALERTS
+// ─────────────────────────────────────────────
+
+data class AlertItem(
+    val id: String,
+    val title: String,
+    val description: String,
+    val type: String, // "critical" or "standard"
+    val time: String
+)
+
+data class OfficialAlertsUiState(
+    val alerts: List<AlertItem> = emptyList(),
+    val filter: String = "all", // "all" or "critical"
+    val isLoading: Boolean = false
+)
+
+@HiltViewModel
+class OfficialAlertsViewModel @Inject constructor(
+    private val webSocketManager: WebSocketManager
+) : ViewModel() {
+
+    private val _uiState = MutableStateFlow(OfficialAlertsUiState(isLoading = true))
+    val uiState: StateFlow<OfficialAlertsUiState> = _uiState.asStateFlow()
+
+    init {
+        observeWebSocketAlerts()
+        // Start with empty live feed — populated by WebSocket events
+        _uiState.update { it.copy(isLoading = false) }
+    }
+
+    fun setFilter(filter: String) = _uiState.update { it.copy(filter = filter) }
+
+    private fun observeWebSocketAlerts() {
+        viewModelScope.launch {
+            webSocketManager.socketEvents.collect { event ->
+                when (event) {
+                    is SocketEvent.EmergencyAlert -> {
+                        val newAlert = AlertItem(
+                            id = System.currentTimeMillis().toString(),
+                            title = "Emergency Alert",
+                            description = event.message,
+                            type = if (event.severity == "high" || event.severity == "critical") "critical" else "standard",
+                            time = "Just now"
+                        )
+                        _uiState.update { it.copy(alerts = listOf(newAlert) + it.alerts) }
+                    }
+                    is SocketEvent.IncidentCreated -> {
+                        val newAlert = AlertItem(
+                            id = System.currentTimeMillis().toString(),
+                            title = "New Incident Reported",
+                            description = "A new incident has been reported in your zone",
+                            type = "standard",
+                            time = "Just now"
+                        )
+                        _uiState.update { it.copy(alerts = listOf(newAlert) + it.alerts) }
+                    }
+                    else -> Unit
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun OfficialAlertsScreen(
+    navController: NavController,
+    viewModel: OfficialAlertsViewModel = hiltViewModel()
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val filteredAlerts = if (uiState.filter == "critical") {
+        uiState.alerts.filter { it.type == "critical" }
+    } else {
+        uiState.alerts
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text("Real-Time Alert Center", color = Color.White, fontWeight = FontWeight.Bold)
+                        Text("Live monitoring of city incidents", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.8f))
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = { navController.navigateUp() }) {
+                        Icon(Icons.Default.ArrowBack, null, tint = Color.White)
+                    }
+                },
+                actions = {
+                    // Filter toggles
+                    Row(modifier = Modifier.padding(end = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        listOf("all" to "All Alerts", "critical" to "Critical (${uiState.alerts.count { it.type == "critical" }})").forEach { (key, label) ->
+                            FilterChip(
+                                selected = uiState.filter == key,
+                                onClick = { viewModel.setFilter(key) },
+                                label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = Color.White,
+                                    selectedLabelColor = SecondaryTeal
+                                )
+                            )
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = SecondaryTeal)
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Live Feed Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Live Feed", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Surface(color = if (filteredAlerts.isEmpty()) Color(0xFFF0F2F5) else PriorityCritical.copy(alpha = 0.15f), shape = RoundedCornerShape(100.dp)) {
+                    Text(
+                        "${filteredAlerts.size} Active",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (filteredAlerts.isEmpty()) Color.Gray else PriorityCritical,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            if (uiState.isLoading) {
+                Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = SecondaryTeal)
+                }
+            } else if (filteredAlerts.isEmpty()) {
+                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(40.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(Icons.Default.CheckCircle, null, tint = SuccessGreen, modifier = Modifier.size(48.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text("All clear. No active alerts.", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+                    }
+                }
+            } else {
+                filteredAlerts.forEach { alert ->
+                    AlertCard(alert)
+                }
+            }
+
+            // Legend
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(10.dp).background(PriorityCritical, CircleShape))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Critical", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(modifier = Modifier.size(10.dp).background(PrimaryBlue, CircleShape))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Standard", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AlertCard(alert: AlertItem) {
+    val isCritical = alert.type == "critical"
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isCritical) PriorityCritical.copy(alpha = 0.06f) else PrimaryBlue.copy(alpha = 0.06f)
+        ),
+        border = androidx.compose.foundation.BorderStroke(1.dp, if (isCritical) PriorityCritical.copy(alpha = 0.3f) else PrimaryBlue.copy(alpha = 0.3f))
+    ) {
+        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier.size(40.dp).background(
+                    if (isCritical) PriorityCritical.copy(alpha = 0.15f) else PrimaryBlue.copy(alpha = 0.15f),
+                    CircleShape
+                ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    if (isCritical) Icons.Default.Warning else Icons.Default.Notifications,
+                    null,
+                    tint = if (isCritical) PriorityCritical else PrimaryBlue,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(alert.title, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
+                Text(alert.description, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            }
+            Text(alert.time, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+        }
+    }
+}
