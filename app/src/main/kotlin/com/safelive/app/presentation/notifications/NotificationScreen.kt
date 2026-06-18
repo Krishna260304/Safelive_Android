@@ -54,7 +54,6 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.PermissionStatus
 import com.google.accompanist.permissions.rememberPermissionState
 import com.safelive.app.domain.model.Notification
-import com.safelive.app.ui.theme.PrimaryBlue
 import com.safelive.app.utils.DateUtils
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
@@ -108,7 +107,7 @@ fun NotificationScreen(
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = PrimaryBlue)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primary)
             )
         }
     ) { paddingValues ->
@@ -136,7 +135,7 @@ fun NotificationScreen(
                                 .padding(vertical = 32.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            CircularProgressIndicator(color = PrimaryBlue)
+                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
@@ -183,8 +182,8 @@ private fun NotificationPermissionCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = PrimaryBlue.copy(alpha = 0.08f)),
-        border = BorderStroke(1.dp, PrimaryBlue.copy(alpha = 0.25f))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f))
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
@@ -199,7 +198,7 @@ private fun NotificationPermissionCard(
             )
             Button(
                 onClick = onEnable,
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
                 Text("Enable Notifications")
             }
@@ -214,7 +213,7 @@ private fun NotificationCard(
     onDelete: () -> Unit
 ) {
     val containerColor = if (!notification.isRead) {
-        PrimaryBlue.copy(alpha = 0.06f)
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)
     } else {
         MaterialTheme.colorScheme.surface
     }
@@ -260,7 +259,7 @@ private fun NotificationCard(
                         Box(
                             modifier = Modifier
                                 .size(8.dp)
-                                .background(PrimaryBlue, RoundedCornerShape(100.dp))
+                                .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(100.dp))
                         )
                     }
                 }

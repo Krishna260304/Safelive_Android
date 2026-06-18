@@ -1,4 +1,5 @@
 package com.safelive.app.presentation.incidents
+import androidx.compose.material3.MaterialTheme
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.*
@@ -21,7 +22,6 @@ import com.safelive.app.navigation.Screen
 import com.safelive.app.presentation.dashboard.EmptyStateCard
 import com.safelive.app.presentation.dashboard.IncidentSummaryCard
 import com.safelive.app.presentation.dashboard.LoadingIncidentCard
-import com.safelive.app.ui.theme.PrimaryBlue
 import com.safelive.app.utils.Constants
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -37,7 +37,7 @@ fun IncidentListScreen(
         topBar = {
             Column(
                 modifier = Modifier
-                    .background(PrimaryBlue)
+                    .background(MaterialTheme.colorScheme.primary)
                     .statusBarsPadding()
             ) {
                 TopAppBar(
@@ -55,7 +55,7 @@ fun IncidentListScreen(
                             )
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = PrimaryBlue)
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primary)
                 )
 
                 OutlinedTextField(
@@ -90,7 +90,7 @@ fun IncidentListScreen(
                 onClick = { navController.navigate(Screen.CreateIncident.route) },
                 icon = { Icon(Icons.Default.Add, null) },
                 text = { Text("Report Issue") },
-                containerColor = PrimaryBlue,
+                containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = Color.White
             )
         }
@@ -122,7 +122,7 @@ fun IncidentListScreen(
                         Text(
                             "Filters active",
                             style = MaterialTheme.typography.labelSmall,
-                            color = PrimaryBlue
+                            color = MaterialTheme.colorScheme.primary
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         TextButton(onClick = viewModel::clearFilters, contentPadding = PaddingValues(0.dp)) {

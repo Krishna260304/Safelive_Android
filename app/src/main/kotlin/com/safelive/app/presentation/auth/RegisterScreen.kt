@@ -1,4 +1,5 @@
 package com.safelive.app.presentation.auth
+import androidx.compose.material3.MaterialTheme
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.*
@@ -21,7 +22,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.safelive.app.navigation.Screen
-import com.safelive.app.ui.theme.PrimaryBlue
 import com.safelive.app.ui.theme.SuccessGreen
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -215,10 +215,10 @@ fun RegisterScreen(
                                 modifier = Modifier.weight(1f).height(40.dp),
                                 shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (isDepartment) PrimaryBlue else Color.White,
+                                    containerColor = if (isDepartment) MaterialTheme.colorScheme.primary else Color.White,
                                     contentColor = if (isDepartment) Color.White else Color.Black
                                 ),
-                                border = BorderStroke(1.dp, if (isDepartment) PrimaryBlue else Color.LightGray)
+                                border = BorderStroke(1.dp, if (isDepartment) MaterialTheme.colorScheme.primary else Color.LightGray)
                             ) {
                                 Text("Department", style = MaterialTheme.typography.labelMedium)
                             }
@@ -229,10 +229,10 @@ fun RegisterScreen(
                                 modifier = Modifier.weight(1f).height(40.dp),
                                 shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (isWorker) PrimaryBlue else Color.White,
+                                    containerColor = if (isWorker) MaterialTheme.colorScheme.primary else Color.White,
                                     contentColor = if (isWorker) Color.White else Color.Black
                                 ),
-                                border = BorderStroke(1.dp, if (isWorker) PrimaryBlue else Color.LightGray)
+                                border = BorderStroke(1.dp, if (isWorker) MaterialTheme.colorScheme.primary else Color.LightGray)
                             ) {
                                 Text("Worker", style = MaterialTheme.typography.labelMedium)
                             }
@@ -412,7 +412,7 @@ fun RegisterScreen(
                         enabled = !uiState.isLoading,
                         modifier = Modifier.fillMaxWidth().height(48.dp),
                         shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
                         if (uiState.isLoading) {
                             CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
@@ -429,7 +429,7 @@ fun RegisterScreen(
                         Text("Already have an account? ", style = MaterialTheme.typography.bodySmall)
                         Text(
                             "Sign In",
-                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = PrimaryBlue),
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary),
                             modifier = Modifier.clickable { navController.navigate(Screen.Login.route) }
                         )
                     }
@@ -457,9 +457,9 @@ private fun UserTypeCard(
     Card(
         modifier = modifier.clickable { onClick() }.height(120.dp),
         shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, if (isSelected) PrimaryBlue else Color.LightGray),
+        border = BorderStroke(1.dp, if (isSelected) MaterialTheme.colorScheme.primary else Color.LightGray),
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) PrimaryBlue.copy(alpha = 0.05f) else Color.White
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.05f) else Color.White
         )
     ) {
         Column(
@@ -468,13 +468,13 @@ private fun UserTypeCard(
             verticalArrangement = Arrangement.Center
         ) {
             Box(
-                modifier = Modifier.size(40.dp).background(if (isSelected) PrimaryBlue else Color(0xFFF0F2F5), RoundedCornerShape(20.dp)),
+                modifier = Modifier.size(40.dp).background(if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFFF0F2F5), RoundedCornerShape(20.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(icon, null, tint = if (isSelected) Color.White else Color.Gray, modifier = Modifier.size(20.dp))
             }
             Spacer(modifier = Modifier.height(8.dp))
-            Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = if (isSelected) PrimaryBlue else Color.Black)
+            Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Black)
             Text(description, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp), color = Color.Gray, textAlign = TextAlign.Center)
         }
     }

@@ -1,4 +1,5 @@
 package com.safelive.app.presentation.profile
+import androidx.compose.material3.MaterialTheme
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -7,6 +8,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
@@ -25,7 +27,6 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.safelive.app.domain.repository.AuthRepository
-import com.safelive.app.ui.theme.PrimaryBlue
 import com.safelive.app.utils.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -110,13 +111,13 @@ fun ChangePasswordScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings", color = Color.White, fontWeight = FontWeight.Bold) },
+                title = { Text("Profile", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface) },
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(Icons.Default.ArrowBack, null, tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = MaterialTheme.colorScheme.onSurface)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = PrimaryBlue)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
             )
         }
     ) { paddingValues ->
@@ -219,7 +220,7 @@ fun ChangePasswordScreen(
                     onClick = viewModel::changePassword,
                     enabled = !uiState.isLoading,
                     shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
                     if (uiState.isLoading) {
                         CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
@@ -265,7 +266,7 @@ fun ChangePasswordScreen(
                         Switch(
                             checked = uiState.twoFactorEnabled,
                             onCheckedChange = viewModel::toggle2FA,
-                            colors = SwitchDefaults.colors(checkedTrackColor = PrimaryBlue)
+                            colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary)
                         )
                     }
                 }

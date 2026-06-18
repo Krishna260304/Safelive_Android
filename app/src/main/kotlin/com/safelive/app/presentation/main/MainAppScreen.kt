@@ -1,4 +1,5 @@
 package com.safelive.app.presentation.main
+import androidx.compose.material3.MaterialTheme
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically

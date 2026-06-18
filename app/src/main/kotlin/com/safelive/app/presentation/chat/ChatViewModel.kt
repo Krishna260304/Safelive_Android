@@ -10,6 +10,7 @@ import com.safelive.app.domain.usecase.chat.SendMessageUseCase
 import com.safelive.app.domain.repository.AuthRepository
 import com.safelive.app.utils.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -36,6 +37,8 @@ class ChatViewModel @Inject constructor(
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
     private var currentChatId: String = ""
+    private var messagesJob: Job? = null
+    private var webSocketJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -43,27 +46,21 @@ class ChatViewModel @Inject constructor(
                 _uiState.update { it.copy(currentUserId = id) }
             }
         }
+        observeWebSocket()
     }
 
     fun loadChat(chatId: String) {
         currentChatId = chatId
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-            getMessagesUseCase(chatId).collect { result ->
-                when (result) {
-                    is Resource.Success -> _uiState.update { it.copy(messages = result.data, isLoading = false) }
-                    is Resource.Error -> _uiState.update { it.copy(error = result.message, isLoading = false) }
-                    Resource.Loading -> Unit
-                }
-            }
-        }
-        observeWebSocket(chatId)
+        _uiState.update { it.copy(isLoading = true, error = null, otherUserTyping = false) }
+        loadMessages(chatId)
     }
 
     fun onInputChange(text: String) {
         _uiState.update { it.copy(inputText = text) }
 
-        webSocketManager.sendMessage("typing", mapOf("chat_id" to currentChatId, "is_typing" to true))
+        if (currentChatId.isNotBlank()) {
+            webSocketManager.sendMessage("typing", mapOf("chat_id" to currentChatId, "is_typing" to true))
+        }
     }
 
     fun sendMessage() {
@@ -83,17 +80,37 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    private fun observeWebSocket(chatId: String) {
-        viewModelScope.launch {
+    private fun loadMessages(chatId: String) {
+        messagesJob?.cancel()
+        messagesJob = viewModelScope.launch {
+            getMessagesUseCase(chatId).collect { result ->
+                when (result) {
+                    is Resource.Success -> _uiState.update { it.copy(messages = result.data, isLoading = false) }
+                    is Resource.Error -> _uiState.update { it.copy(error = result.message, isLoading = false) }
+                    Resource.Loading -> Unit
+                }
+            }
+        }
+    }
+
+    private fun refreshMessages() {
+        if (currentChatId.isNotBlank()) {
+            loadMessages(currentChatId)
+        }
+    }
+
+    private fun observeWebSocket() {
+        if (webSocketJob?.isActive == true) return
+        webSocketJob = viewModelScope.launch {
             webSocketManager.socketEvents.collect { event ->
                 when (event) {
                     is SocketEvent.TicketMessage -> {
-                        if (event.chatId == chatId) {
-                            loadChat(chatId)
+                        if (event.chatId == currentChatId) {
+                            refreshMessages()
                         }
                     }
                     is SocketEvent.TypingIndicator -> {
-                        if (event.chatId == chatId && event.userId != _uiState.value.currentUserId) {
+                        if (event.chatId == currentChatId && event.userId != _uiState.value.currentUserId) {
                             _uiState.update { it.copy(otherUserTyping = event.isTyping) }
                         }
                     }

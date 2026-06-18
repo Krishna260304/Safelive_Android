@@ -1,4 +1,5 @@
 package com.safelive.app.presentation.official
+import androidx.compose.material3.MaterialTheme
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -33,8 +34,6 @@ import com.safelive.app.data.remote.dto.UserDto
 import com.safelive.app.data.websocket.SocketEvent
 import com.safelive.app.data.websocket.WebSocketManager
 import com.safelive.app.domain.repository.PincodeRepository
-import com.safelive.app.ui.theme.SecondaryTeal
-import com.safelive.app.ui.theme.PrimaryBlue
 import com.safelive.app.ui.theme.SuccessGreen
 import com.safelive.app.ui.theme.PriorityCritical
 import com.safelive.app.utils.ValidationUtils
@@ -286,7 +285,7 @@ fun TeamManagementScreen(
     Scaffold(
         topBar = {
             Surface(
-                color = SecondaryTeal,
+                color = MaterialTheme.colorScheme.secondary,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
@@ -326,7 +325,7 @@ fun TeamManagementScreen(
                         modifier = Modifier.fillMaxWidth().padding(24.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(color = SecondaryTeal)
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.secondary)
                     }
                 }
             } else if (!uiState.isDepartmentAccount) {
@@ -371,8 +370,8 @@ fun TeamManagementScreen(
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (uiState.selectedRole == key) SecondaryTeal else Color(0xFFE8F4F8),
-                                    contentColor = if (uiState.selectedRole == key) Color.White else SecondaryTeal
+                                    containerColor = if (uiState.selectedRole == key) MaterialTheme.colorScheme.secondary else Color(0xFFE8F4F8),
+                                    contentColor = if (uiState.selectedRole == key) Color.White else MaterialTheme.colorScheme.secondary
                                 )
                             ) { Text(label, style = MaterialTheme.typography.labelMedium) }
                         }
@@ -521,7 +520,7 @@ fun TeamManagementScreen(
                             enabled = !uiState.isLoading,
                             modifier = Modifier.weight(2f),
                             shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = SecondaryTeal)
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
                         ) {
                             if (uiState.isLoading) {
                                 CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
@@ -542,7 +541,7 @@ fun TeamManagementScreen(
 
                     if (uiState.isLoadingTeam) {
                         Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(color = SecondaryTeal)
+                            CircularProgressIndicator(color = MaterialTheme.colorScheme.secondary)
                         }
                     } else if (uiState.teamMembers.isEmpty()) {
                         Text(
@@ -571,13 +570,13 @@ private fun TeamMemberRow(user: UserDto) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
-            modifier = Modifier.size(40.dp).background(SecondaryTeal.copy(alpha = 0.15f), CircleShape),
+            modifier = Modifier.size(40.dp).background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f), CircleShape),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = (user.fullName ?: "?").take(1).uppercase(),
                 fontWeight = FontWeight.Bold,
-                color = SecondaryTeal,
+                color = MaterialTheme.colorScheme.secondary,
                 fontSize = 16.sp
             )
         }
@@ -588,13 +587,13 @@ private fun TeamMemberRow(user: UserDto) {
         }
         val role = user.officialRole ?: user.userType ?: "official"
         Surface(
-            color = SecondaryTeal.copy(alpha = 0.12f),
+            color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
             shape = RoundedCornerShape(100.dp)
         ) {
             Text(
                 text = role.replaceFirstChar { it.uppercase() },
                 style = MaterialTheme.typography.labelSmall,
-                color = SecondaryTeal,
+                color = MaterialTheme.colorScheme.secondary,
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
             )
         }
@@ -682,7 +681,7 @@ fun OfficialAlertsScreen(
     Scaffold(
         topBar = {
             Surface(
-                color = SecondaryTeal,
+                color = MaterialTheme.colorScheme.secondary,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
@@ -710,7 +709,7 @@ fun OfficialAlertsScreen(
                                 label = { Text(label, style = MaterialTheme.typography.labelSmall) },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = Color.White,
-                                    selectedLabelColor = SecondaryTeal
+                                    selectedLabelColor = MaterialTheme.colorScheme.secondary
                                 ),
                                 border = FilterChipDefaults.filterChipBorder(
                                     enabled = true, selected = uiState.filter == key,
@@ -749,7 +748,7 @@ fun OfficialAlertsScreen(
 
             if (uiState.isLoading) {
                 Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = SecondaryTeal)
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.secondary)
                 }
             } else if (filteredAlerts.isEmpty()) {
                 Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
@@ -781,7 +780,7 @@ fun OfficialAlertsScreen(
                 }
                 Spacer(modifier = Modifier.width(16.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(modifier = Modifier.size(10.dp).background(PrimaryBlue, CircleShape))
+                    Box(modifier = Modifier.size(10.dp).background(MaterialTheme.colorScheme.primary, CircleShape))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Standard", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
                 }
@@ -797,14 +796,14 @@ private fun AlertCard(alert: AlertItem) {
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isCritical) PriorityCritical.copy(alpha = 0.06f) else PrimaryBlue.copy(alpha = 0.06f)
+            containerColor = if (isCritical) PriorityCritical.copy(alpha = 0.06f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)
         ),
-        border = androidx.compose.foundation.BorderStroke(1.dp, if (isCritical) PriorityCritical.copy(alpha = 0.3f) else PrimaryBlue.copy(alpha = 0.3f))
+        border = androidx.compose.foundation.BorderStroke(1.dp, if (isCritical) PriorityCritical.copy(alpha = 0.3f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
     ) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier.size(40.dp).background(
-                    if (isCritical) PriorityCritical.copy(alpha = 0.15f) else PrimaryBlue.copy(alpha = 0.15f),
+                    if (isCritical) PriorityCritical.copy(alpha = 0.15f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
                     CircleShape
                 ),
                 contentAlignment = Alignment.Center
@@ -812,7 +811,7 @@ private fun AlertCard(alert: AlertItem) {
                 Icon(
                     if (isCritical) Icons.Default.Warning else Icons.Default.Notifications,
                     null,
-                    tint = if (isCritical) PriorityCritical else PrimaryBlue,
+                    tint = if (isCritical) PriorityCritical else MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(20.dp)
                 )
             }

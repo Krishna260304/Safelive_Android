@@ -12,6 +12,7 @@ import com.safelive.app.domain.usecase.notification.GetUnreadCountUseCase
 import com.safelive.app.domain.repository.AuthRepository
 import com.safelive.app.utils.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -40,6 +41,7 @@ class CitizenDashboardViewModel @Inject constructor(
 
     private val _loggedOut = MutableStateFlow(false)
     val loggedOut: StateFlow<Boolean> = _loggedOut.asStateFlow()
+    private var loadJob: Job? = null
 
     init {
         loadDashboard()
@@ -49,26 +51,25 @@ class CitizenDashboardViewModel @Inject constructor(
         observeWebSocketEvents()
     }
 
-    private fun loadDashboard() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
+    private fun loadDashboard(refreshing: Boolean = false) {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    isLoading = !refreshing,
+                    isRefreshing = refreshing
+                )
+            }
             when (val result = getDashboardStatsUseCase()) {
-                is Resource.Success -> _uiState.update { it.copy(stats = result.data, isLoading = false) }
-                is Resource.Error -> _uiState.update { it.copy(error = result.message, isLoading = false) }
+                is Resource.Success -> _uiState.update { it.copy(stats = result.data, isLoading = false, isRefreshing = false) }
+                is Resource.Error -> _uiState.update { it.copy(error = result.message, isLoading = false, isRefreshing = false) }
                 Resource.Loading -> Unit
             }
         }
     }
 
     fun refresh() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isRefreshing = true) }
-            when (val result = getDashboardStatsUseCase()) {
-                is Resource.Success -> _uiState.update { it.copy(stats = result.data, isRefreshing = false) }
-                is Resource.Error -> _uiState.update { it.copy(error = result.message, isRefreshing = false) }
-                Resource.Loading -> Unit
-            }
-        }
+        loadDashboard(refreshing = true)
     }
 
     private fun observeUserInfo() {

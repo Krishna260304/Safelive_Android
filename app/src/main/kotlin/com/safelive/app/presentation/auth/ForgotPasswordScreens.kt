@@ -1,4 +1,5 @@
 package com.safelive.app.presentation.auth
+import androidx.compose.material3.MaterialTheme
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
@@ -20,7 +21,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.safelive.app.navigation.Screen
-import com.safelive.app.ui.theme.PrimaryBlue
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,7 +46,7 @@ fun ForgotPasswordScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = PrimaryBlue,
+                    containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = Color.White,
                     navigationIconContentColor = Color.White
                 )
@@ -100,7 +100,7 @@ fun ForgotPasswordScreen(
                 enabled = !uiState.isLoading,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
                 if (uiState.isLoading) {
                     CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
@@ -139,7 +139,7 @@ fun OtpVerificationScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = PrimaryBlue,
+                    containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = Color.White,
                     navigationIconContentColor = Color.White
                 )
@@ -189,7 +189,7 @@ fun OtpVerificationScreen(
                 enabled = !uiState.isLoading && uiState.otp.length == 6,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
                 if (uiState.isLoading) {
                     CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
@@ -229,7 +229,7 @@ fun ResetPasswordScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = PrimaryBlue,
+                    containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = Color.White,
                     navigationIconContentColor = Color.White
                 )
@@ -298,7 +298,7 @@ fun ResetPasswordScreen(
                 enabled = !uiState.isLoading,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
                 if (uiState.isLoading) {
                     CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))

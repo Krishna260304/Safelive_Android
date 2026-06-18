@@ -1,4 +1,5 @@
 package com.safelive.app.presentation.main
+import androidx.compose.material3.MaterialTheme
 
 import android.content.Intent
 import androidx.compose.foundation.background

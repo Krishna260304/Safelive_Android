@@ -36,34 +36,49 @@ class ImageUtils @Inject constructor(
 
     fun compressImage(uri: Uri, quality: Int = Constants.IMAGE_QUALITY): File? {
         return try {
-            val options = BitmapFactory.Options().apply {
-                inJustDecodeBounds = true
-            }
-            context.contentResolver.openInputStream(uri)?.use {
-                BitmapFactory.decodeStream(it, null, options)
-            }
+            val bitmap = decodeSampledBitmap(uri, 1280, 1280) ?: return null
+            try {
+                val outputFile = createImageFile() ?: return null
+                var currentQuality = quality.coerceIn(10, 100)
+                val maxSizeBytes = Constants.MAX_IMAGE_SIZE_MB * 1024 * 1024
 
-            options.inSampleSize = calculateInSampleSize(options, 1280, 1280)
-            options.inJustDecodeBounds = false
+                do {
+                    FileOutputStream(outputFile, false).use { outputStream ->
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, currentQuality, outputStream)
+                        outputStream.flush()
+                    }
 
-            val bitmap = context.contentResolver.openInputStream(uri)?.use {
-                BitmapFactory.decodeStream(it, null, options)
-            } ?: return null
+                    if (outputFile.length() <= maxSizeBytes || currentQuality <= 10) {
+                        break
+                    }
+                    currentQuality -= 10
+                } while (true)
 
-            val outputFile = createImageFile() ?: return null
-            val outputStream = FileOutputStream(outputFile)
-            bitmap.compress(Bitmap.CompressFormat.JPEG, quality, outputStream)
-            outputStream.close()
-            bitmap.recycle()
-
-            if (outputFile.length() > Constants.MAX_IMAGE_SIZE_MB * 1024 * 1024) {
-                compressToMaxSize(outputFile, Constants.MAX_IMAGE_SIZE_MB * 1024 * 1024)
-            } else {
                 outputFile
+            } finally {
+                bitmap.recycle()
             }
         } catch (e: Exception) {
             Timber.e(e, "Failed to compress image")
             null
+        }
+    }
+
+    private fun decodeSampledBitmap(uri: Uri, reqWidth: Int, reqHeight: Int): Bitmap? {
+        val bounds = BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+        }
+
+        context.contentResolver.openInputStream(uri)?.use { inputStream ->
+            BitmapFactory.decodeStream(inputStream, null, bounds)
+        }
+
+        bounds.inSampleSize = calculateInSampleSize(bounds, reqWidth, reqHeight)
+        bounds.inJustDecodeBounds = false
+        bounds.inPreferredConfig = Bitmap.Config.RGB_565
+
+        return context.contentResolver.openInputStream(uri)?.use { inputStream ->
+            BitmapFactory.decodeStream(inputStream, null, bounds)
         }
     }
 
@@ -79,22 +94,6 @@ class ImageUtils @Inject constructor(
             }
         }
         return inSampleSize
-    }
-
-    private fun compressToMaxSize(file: File, maxSizeBytes: Int): File? {
-        if (file.length() <= maxSizeBytes) return file
-        
-        var quality = 80
-        val bitmap = BitmapFactory.decodeFile(file.absolutePath) ?: return null
-        
-        while (file.length() > maxSizeBytes && quality > 10) {
-            quality -= 10
-            val outputStream = FileOutputStream(file)
-            bitmap.compress(Bitmap.CompressFormat.JPEG, quality, outputStream)
-            outputStream.close()
-        }
-        bitmap.recycle()
-        return file
     }
 
     fun createMultipartFromUri(uri: Uri, fieldName: String = "images"): MultipartBody.Part? {

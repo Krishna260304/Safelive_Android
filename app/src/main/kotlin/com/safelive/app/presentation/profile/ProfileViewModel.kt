@@ -1,6 +1,5 @@
 package com.safelive.app.presentation.profile
 
-import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -8,6 +7,7 @@ import com.safelive.app.domain.model.User
 import com.safelive.app.domain.repository.ProfileRepository
 import com.safelive.app.domain.repository.PincodeRepository
 import com.safelive.app.domain.usecase.auth.LogoutUseCase
+import com.safelive.app.utils.ImageUtils
 import com.safelive.app.utils.ValidationUtils
 import com.safelive.app.utils.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -44,7 +44,8 @@ data class EditProfileUiState(
 class ProfileViewModel @Inject constructor(
     private val profileRepository: ProfileRepository,
     private val pincodeRepository: PincodeRepository,
-    private val logoutUseCase: LogoutUseCase
+    private val logoutUseCase: LogoutUseCase,
+    private val imageUtils: ImageUtils
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfileUiState())
@@ -95,24 +96,26 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
-    fun uploadPhoto(uri: Uri, context: Context) {
+    fun uploadPhoto(uri: Uri) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
+            var compressedFile: File? = null
             try {
-                val inputStream = context.contentResolver.openInputStream(uri)
-                val tempFile = File.createTempFile("profile_pic", ".jpg", context.cacheDir)
-                val outputStream = FileOutputStream(tempFile)
-                inputStream?.copyTo(outputStream)
-                inputStream?.close()
-                outputStream.close()
+                compressedFile = imageUtils.compressImage(uri)
+                if (compressedFile == null) {
+                    _uiState.update { it.copy(isLoading = false, error = "Failed to process image") }
+                    return@launch
+                }
 
-                when (val result = profileRepository.uploadProfilePicture(tempFile.absolutePath)) {
+                when (val result = profileRepository.uploadProfilePicture(compressedFile.absolutePath)) {
                     is Resource.Success -> _uiState.update { it.copy(user = result.data, isLoading = false) }
                     is Resource.Error -> _uiState.update { it.copy(error = result.message, isLoading = false) }
                     Resource.Loading -> Unit
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message, isLoading = false) }
+            } finally {
+                compressedFile?.delete()
             }
         }
     }

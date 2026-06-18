@@ -1,4 +1,5 @@
 package com.safelive.app.presentation.official
+import androidx.compose.material3.MaterialTheme
 
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -54,7 +55,7 @@ fun OfficialDashboardScreen(
         drawerContent = {
             ModalDrawerSheet {
                 Spacer(Modifier.height(16.dp))
-                Text("${uiState.displayRole} Portal", modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = SecondaryTeal)
+                Text("${uiState.displayRole} Portal", modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
                 HorizontalDivider()
                 
                 val navItems = if (uiState.officialRole.equals("supervisor", ignoreCase = true)) {
@@ -109,36 +110,41 @@ fun OfficialDashboardScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text("${uiState.displayRole} Portal", color = Color.White, fontWeight = FontWeight.Bold)
+                        Text(
+                            "${uiState.displayRole} Portal", 
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface, 
+                            fontWeight = FontWeight.Bold
+                        )
                         Text(
                             "Welcome, ${uiState.officialName}",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.8f)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 },
                 navigationIcon = {
                     IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                        Icon(Icons.Default.Menu, contentDescription = "Menu", tint = Color.White)
+                        Icon(Icons.Default.Menu, contentDescription = "Menu", tint = MaterialTheme.colorScheme.onSurface)
                     }
                 },
                 actions = {
                     BadgedBox(
                         badge = {
                             if (uiState.unreadCount > 0) {
-                                Badge { Text(uiState.unreadCount.toString()) }
+                                Badge(containerColor = MaterialTheme.colorScheme.error) { Text(uiState.unreadCount.toString(), color = Color.White) }
                             }
                         }
                     ) {
                         IconButton(onClick = { navController.navigate(Screen.Notifications.route) }) {
-                            Icon(Icons.Default.Notifications, null, tint = Color.White)
+                            Icon(Icons.Default.Notifications, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                     IconButton(onClick = { navController.navigate(Screen.Profile.route) }) {
-                        Icon(Icons.Default.AccountCircle, null, tint = Color.White)
+                        Icon(Icons.Default.AccountCircle, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = SecondaryTeal)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
             )
         }
     ) { paddingValues ->
@@ -192,76 +198,62 @@ fun OfficialDashboardScreen(
 private fun OfficialStatsSection(stats: com.safelive.app.domain.model.DashboardStats?, isLoading: Boolean) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Row 1: Total, Open, Resolved
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            val row1 = listOf(
-                Triple("Total", stats?.stats?.total ?: 0, com.safelive.app.ui.theme.PrimaryBlue),
-                Triple("Open", stats?.stats?.open ?: 0, com.safelive.app.ui.theme.WarningOrange),
-                Triple("Resolved", stats?.stats?.resolved ?: 0, com.safelive.app.ui.theme.SuccessGreen)
-            )
-            row1.forEach { (label, count, color) ->
-                StatKpiCard(
-                    label = label,
-                    count = count,
-                    color = color,
-                    isLoading = isLoading,
-                    modifier = Modifier.weight(1f)
-                )
-            }
+            StatKpiCard("Total", stats?.stats?.total ?: 0, com.safelive.app.ui.theme.PrimaryTeal, isLoading, Icons.Default.Dashboard, Modifier.weight(1f))
+            StatKpiCard("Open", stats?.stats?.open ?: 0, com.safelive.app.ui.theme.StatusOpen, isLoading, Icons.Default.Inbox, Modifier.weight(1f))
+            StatKpiCard("Resolved", stats?.stats?.resolved ?: 0, com.safelive.app.ui.theme.StatusResolved, isLoading, Icons.Default.CheckCircle, Modifier.weight(1f))
         }
-        // Row 2: Pending, In Progress
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            StatKpiCard(
-                label = "Pending",
-                count = stats?.stats?.pending ?: 0,
-                color = com.safelive.app.ui.theme.PriorityMedium,
-                isLoading = isLoading,
-                modifier = Modifier.weight(1f)
-            )
-            StatKpiCard(
-                label = "In Progress",
-                count = stats?.stats?.inProgress ?: 0,
-                color = com.safelive.app.ui.theme.SecondaryTeal,
-                isLoading = isLoading,
-                modifier = Modifier.weight(1f)
-            )
+            StatKpiCard("Pending", stats?.stats?.pending ?: 0, com.safelive.app.ui.theme.StatusPending, isLoading, Icons.Default.PendingActions, Modifier.weight(1f))
+            StatKpiCard("In Progress", stats?.stats?.inProgress ?: 0, com.safelive.app.ui.theme.StatusInProgress, isLoading, Icons.Default.PlayCircle, Modifier.weight(1f))
         }
     }
 }
 
 
 @Composable
-private fun StatKpiCard(label: String, count: Int, color: androidx.compose.ui.graphics.Color, isLoading: Boolean, modifier: Modifier = Modifier) {
+private fun StatKpiCard(label: String, count: Int, color: androidx.compose.ui.graphics.Color, isLoading: Boolean, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier,
         shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.12f))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.Start
         ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(16.dp))
+            }
+            Spacer(modifier = Modifier.height(12.dp))
             if (isLoading) {
-                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = color)
+                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = color)
             } else {
                 Text(
                     text = count.toString(),
-                    style = MaterialTheme.typography.headlineMedium,
+                    style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
-                    color = color
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 label,
-                style = MaterialTheme.typography.labelSmall,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -274,59 +266,71 @@ private fun OfficialIncidentCard(incident: Incident, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(
-            width = 1.dp,
-            color = incident.priority.toPriorityBorderColor()
-        )
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
             ) {
                 Text(
                     text = incident.title,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f)
                 )
-                StatusChip(incident.status)
+                Spacer(modifier = Modifier.width(8.dp))
+                com.safelive.app.presentation.dashboard.StatusChip(incident.status)
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
-                            .size(8.dp)
+                            .size(6.dp)
                             .background(incident.priority.toPriorityBorderColor(), CircleShape)
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         incident.priority ?: "Medium",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = incident.priority.toPriorityBorderColor()
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        incident.category ?: "Unassigned",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Text(
                     DateUtils.getTimeAgo(incident.createdAt),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
             incident.reportedBy?.let { reporterName ->
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Reported by: $reporterName",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = reporterName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }
@@ -345,48 +349,50 @@ fun OfficialTicketCard(ticket: Ticket, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(
-            width = 1.dp,
-            color = ticket.priority.toPriorityBorderColor()
-        )
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
             ) {
                 Text(
                     text = ticket.title,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f)
                 )
-                StatusChip(ticket.status)
+                Spacer(modifier = Modifier.width(8.dp))
+                com.safelive.app.presentation.dashboard.StatusChip(ticket.status)
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
-                            .size(8.dp)
+                            .size(6.dp)
                             .background(ticket.priority.toPriorityBorderColor(), CircleShape)
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         ticket.priority,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = ticket.priority.toPriorityBorderColor()
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Text(
                     DateUtils.getTimeAgo(ticket.createdAt),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -405,13 +411,13 @@ fun IncidentQueueScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Incident Queue", color = Color.White, fontWeight = FontWeight.Bold) },
+                title = { Text("Incident Queue", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface) },
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = MaterialTheme.colorScheme.onSurface)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = SecondaryTeal)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
             )
         }
     ) { paddingValues ->

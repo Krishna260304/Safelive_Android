@@ -6,12 +6,12 @@ import com.safelive.app.ui.theme.*
 fun String.toStatusColor(): Color {
     return when (this.lowercase()) {
         "open" -> StatusOpen
-        "assigned" -> StatusAssigned
-        "pending" -> StatusPending
-        "in progress", "inprogress" -> StatusInProgress
-        "resolved" -> StatusResolved
-        "verified" -> StatusVerified
-        "rejected" -> StatusRejected
+        "assigned" -> com.safelive.app.ui.theme.StatusInProgress
+        "pending" -> com.safelive.app.ui.theme.StatusPending
+        "resolved" -> com.safelive.app.ui.theme.StatusResolved
+        "closed" -> com.safelive.app.ui.theme.StatusResolved
+        "verified" -> com.safelive.app.ui.theme.StatusResolved
+        "rejected" -> com.safelive.app.ui.theme.DangerRed
         else -> StatusOpen
     }
 }

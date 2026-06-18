@@ -1,4 +1,5 @@
 package com.safelive.app.presentation.official
+import androidx.compose.material3.MaterialTheme
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,7 +20,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.safelive.app.navigation.Screen
 import com.safelive.app.presentation.dashboard.EmptyStateCard
-import com.safelive.app.ui.theme.SecondaryTeal
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,7 +43,7 @@ fun AssignedIncidentsScreen(
                         Icon(Icons.Default.Refresh, null, tint = Color.White)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = SecondaryTeal)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.secondary)
             )
         }
     ) { paddingValues ->
@@ -54,7 +54,7 @@ fun AssignedIncidentsScreen(
                     .padding(paddingValues),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = SecondaryTeal)
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.secondary)
             }
             return@Scaffold
         }

@@ -1,4 +1,5 @@
 package com.safelive.app.presentation.auth
+import androidx.compose.material3.MaterialTheme
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.*
@@ -26,8 +27,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.safelive.app.navigation.Screen
-import com.safelive.app.ui.theme.PrimaryBlue
-import com.safelive.app.ui.theme.SecondaryTeal
 
 @Composable
 fun LoginScreen(
@@ -77,7 +76,7 @@ fun LoginScreen(
             ) {
                 Text("🛡️", fontSize = 32.sp)
                 Spacer(modifier = Modifier.width(8.dp))
-                // Text("SafeLive", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = PrimaryBlue)
+                // Text("SafeLive", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -210,7 +209,7 @@ private fun LocalLoginContent(
         onClick = { navController.navigate(Screen.ForgotPassword.route) },
         modifier = Modifier.fillMaxWidth().wrapContentWidth(Alignment.End)
     ) {
-        Text("Forgot Password?", color = PrimaryBlue)
+        Text("Forgot Password?", color = MaterialTheme.colorScheme.primary)
     }
 
     Spacer(modifier = Modifier.height(8.dp))
@@ -263,7 +262,7 @@ private fun LocalLoginContent(
 
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text("Don't have an account? ", style = MaterialTheme.typography.bodySmall)
-        Text("Register Here", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = PrimaryBlue), modifier = Modifier.clickable { navController.navigate(Screen.Register.route) })
+        Text("Register Here", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary), modifier = Modifier.clickable { navController.navigate(Screen.Register.route) })
     }
 
     Spacer(modifier = Modifier.height(16.dp))
@@ -280,8 +279,8 @@ private fun LocalLoginContent(
         onClick = { viewModel.onLoginModeChange("official") },
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
-        border = BorderStroke(1.dp, SecondaryTeal),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = SecondaryTeal)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.secondary)
     ) {
         Text("Official Admin Login")
     }
@@ -369,7 +368,7 @@ private fun OfficialLoginContent(
         onClick = { navController.navigate(Screen.ForgotPassword.route) },
         modifier = Modifier.fillMaxWidth().wrapContentWidth(Alignment.End)
     ) {
-        Text("Forgot Password?", color = PrimaryBlue)
+        Text("Forgot Password?", color = MaterialTheme.colorScheme.primary)
     }
 
     Spacer(modifier = Modifier.height(8.dp))
@@ -407,7 +406,7 @@ private fun OfficialLoginContent(
         enabled = !uiState.isLoading,
         modifier = Modifier.fillMaxWidth().height(48.dp),
         shape = RoundedCornerShape(8.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = SecondaryTeal.copy(alpha = 0.7f))
+        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.7f))
     ) {
         if (uiState.isLoading) {
             CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
@@ -422,7 +421,7 @@ private fun OfficialLoginContent(
 
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text("Need a new account? ", style = MaterialTheme.typography.bodySmall)
-        Text("Register", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = PrimaryBlue), modifier = Modifier.clickable { navController.navigate(Screen.Register.route) })
+        Text("Register", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary), modifier = Modifier.clickable { navController.navigate(Screen.Register.route) })
     }
     Text("Supervisor and field inspector accounts are created by department users.", style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp), color = Color.Gray, textAlign = TextAlign.Center)
 
@@ -436,7 +435,7 @@ private fun OfficialLoginContent(
 
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text("Local user? ", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-        Text("Login here", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = PrimaryBlue), modifier = Modifier.clickable { viewModel.onLoginModeChange("local") })
+        Text("Login here", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary), modifier = Modifier.clickable { viewModel.onLoginModeChange("local") })
     }
 }
 
@@ -447,10 +446,10 @@ private fun RoleButton(title: String, isSelected: Boolean, onClick: () -> Unit, 
         modifier = modifier.height(48.dp),
         shape = RoundedCornerShape(8.dp),
         colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = if (isSelected) PrimaryBlue else Color.Transparent,
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
             contentColor = if (isSelected) Color.White else Color.Gray
         ),
-        border = BorderStroke(1.dp, if (isSelected) PrimaryBlue else Color.LightGray),
+        border = BorderStroke(1.dp, if (isSelected) MaterialTheme.colorScheme.primary else Color.LightGray),
         contentPadding = PaddingValues(horizontal = 4.dp)
     ) {
         Text(title, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)

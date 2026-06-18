@@ -12,6 +12,7 @@ import com.safelive.app.domain.usecase.incident.GetDashboardStatsUseCase
 import com.safelive.app.domain.usecase.notification.GetUnreadCountUseCase
 import com.safelive.app.utils.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -45,6 +46,7 @@ class OfficialDashboardViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(OfficialDashboardUiState())
     val uiState: StateFlow<OfficialDashboardUiState> = _uiState.asStateFlow()
+    private var loadJob: Job? = null
 
     init {
         loadDashboard()
@@ -54,9 +56,15 @@ class OfficialDashboardViewModel @Inject constructor(
         observeWebSocket()
     }
 
-    private fun loadDashboard() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
+    private fun loadDashboard(refreshing: Boolean = false) {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    isLoading = !refreshing,
+                    loggedOut = it.loggedOut
+                )
+            }
             when (val result = getDashboardStatsUseCase()) {
                 is Resource.Success -> _uiState.update { it.copy(stats = result.data, isLoading = false) }
                 is Resource.Error -> _uiState.update { it.copy(error = result.message, isLoading = false) }
@@ -67,18 +75,20 @@ class OfficialDashboardViewModel @Inject constructor(
 
     private fun observeUserName() {
         viewModelScope.launch {
-            authRepository.getUserName().collect { name ->
-                _uiState.update { it.copy(officialName = name ?: "Official") }
-            }
-        }
-        viewModelScope.launch {
-            authRepository.getOfficialRole().collect { role ->
-                _uiState.update { it.copy(officialRole = role ?: "") }
-            }
-        }
-        viewModelScope.launch {
-            authRepository.getUserType().collect { type ->
-                _uiState.update { it.copy(userType = type ?: "") }
+            combine(
+                authRepository.getUserName(),
+                authRepository.getOfficialRole(),
+                authRepository.getUserType()
+            ) { name, role, type ->
+                Triple(name ?: "Official", role ?: "", type ?: "")
+            }.collect { (name, role, type) ->
+                _uiState.update {
+                    it.copy(
+                        officialName = name,
+                        officialRole = role,
+                        userType = type
+                    )
+                }
             }
         }
     }

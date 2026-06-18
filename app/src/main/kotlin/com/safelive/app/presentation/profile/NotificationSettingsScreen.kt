@@ -1,4 +1,5 @@
 package com.safelive.app.presentation.profile
+import androidx.compose.material3.MaterialTheme
 
 import android.Manifest
 import android.os.Build
@@ -6,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,7 +23,6 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.safelive.app.data.local.datastore.UserPreferencesDataStore
-import com.safelive.app.ui.theme.PrimaryBlue
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -99,13 +100,13 @@ fun NotificationSettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Notification Settings", color = Color.White, fontWeight = FontWeight.Bold) },
+                title = { Text("Profile", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface) },
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(Icons.Default.ArrowBack, null, tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = MaterialTheme.colorScheme.onSurface)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = PrimaryBlue)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
             )
         }
     ) { paddingValues ->
@@ -119,8 +120,8 @@ fun NotificationSettingsScreen(
             if (notificationPermissionState != null && !notificationPermissionGranted) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = PrimaryBlue.copy(alpha = 0.08f)),
-                    border = BorderStroke(1.dp, PrimaryBlue.copy(alpha = 0.25f))
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f))
                 ) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("System permission needed", fontWeight = FontWeight.Bold)
@@ -169,7 +170,7 @@ fun NotificationSettingsScreen(
                     Switch(
                         checked = uiState.pushNotificationsEnabled,
                         onCheckedChange = viewModel::togglePushNotifications,
-                        colors = SwitchDefaults.colors(checkedTrackColor = PrimaryBlue)
+                        colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary)
                     )
                 }
             }
@@ -201,7 +202,7 @@ fun NotificationSettingsScreen(
                     Switch(
                         checked = uiState.emailAlertsEnabled,
                         onCheckedChange = viewModel::toggleEmailAlerts,
-                        colors = SwitchDefaults.colors(checkedTrackColor = PrimaryBlue)
+                        colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary)
                     )
                 }
             }

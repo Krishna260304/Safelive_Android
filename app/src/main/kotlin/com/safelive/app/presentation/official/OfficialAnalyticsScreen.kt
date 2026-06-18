@@ -1,4 +1,5 @@
 package com.safelive.app.presentation.official
+import androidx.compose.material3.MaterialTheme
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -93,13 +94,13 @@ fun OfficialAnalyticsScreen(
                         Icon(Icons.Default.Refresh, null, tint = Color.White)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = SecondaryTeal)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.secondary)
             )
         }
     ) { padding ->
         if (uiState.isLoading) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = SecondaryTeal)
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.secondary)
             }
             return@Scaffold
         }
@@ -148,7 +149,7 @@ fun OfficialAnalyticsScreen(
                     title = "Avg Resolution Time",
                     value = "${data.avgResolutionHours.toInt()} hrs",
                     subtitle = "from report to resolution",
-                    color = PrimaryBlue,
+                    color = MaterialTheme.colorScheme.primary,
                     icon = Icons.Default.AccessTime
                 )
             }
@@ -187,7 +188,7 @@ fun OfficialAnalyticsScreen(
                 item {
                     val statusColors = mapOf(
                         "open" to WarningOrange,
-                        "in_progress" to PrimaryBlue,
+                        "in_progress" to MaterialTheme.colorScheme.primary,
                         "resolved" to SuccessGreen,
                         "pending" to PriorityMedium,
                         "rejected" to DangerRed
@@ -213,7 +214,7 @@ private fun AnalyticsOverviewCard(data: DashboardDataDto) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Brush.linearGradient(listOf(SecondaryTeal, PrimaryBlue)))
+                .background(Brush.linearGradient(listOf(MaterialTheme.colorScheme.secondary, MaterialTheme.colorScheme.primary)))
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Text("Overview", color = Color.White, fontWeight = FontWeight.Bold,
@@ -301,7 +302,7 @@ private fun BreakdownCard(
     totalValue: Int,
     colorMap: Map<String, Color> = emptyMap()
 ) {
-    val defaultColors = listOf(PrimaryBlue, SuccessGreen, WarningOrange, SecondaryTeal,
+    val defaultColors = listOf(MaterialTheme.colorScheme.primary, SuccessGreen, WarningOrange, MaterialTheme.colorScheme.secondary,
         PriorityCritical, PriorityHigh, PriorityMedium, PriorityLow)
 
     Card(

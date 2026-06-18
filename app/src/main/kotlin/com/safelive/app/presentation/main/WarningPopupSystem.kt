@@ -1,4 +1,5 @@
 package com.safelive.app.presentation.main
+import androidx.compose.material3.MaterialTheme
 
 import android.content.Context
 import android.media.AudioAttributes
@@ -273,7 +274,7 @@ private fun LowSeverityWarningDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = {
-            Icon(Icons.Default.Info, null, tint = PrimaryBlue)
+            Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.primary)
         },
         title = { Text(warning.title, fontWeight = FontWeight.Bold) },
         text = { Text(warning.message) },

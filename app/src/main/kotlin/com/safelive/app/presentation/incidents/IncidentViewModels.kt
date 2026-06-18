@@ -37,6 +37,7 @@ class IncidentListViewModel @Inject constructor(
     val uiState: StateFlow<IncidentListUiState> = _uiState.asStateFlow()
 
     private var searchJob: Job? = null
+    private var loadJob: Job? = null
 
     init {
         loadIncidents()
@@ -44,7 +45,8 @@ class IncidentListViewModel @Inject constructor(
     }
 
     fun loadIncidents(page: Int = 1) {
-        viewModelScope.launch {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             getIncidentsUseCase(
                 page = page,
@@ -127,26 +129,33 @@ class IncidentDetailViewModel @Inject constructor(
     val uiState: StateFlow<IncidentDetailUiState> = _uiState.asStateFlow()
 
     private var currentIncidentId: String = ""
+    private var loadJob: Job? = null
+    private var webSocketJob: Job? = null
+
+    init {
+        observeWebSocketForIncident()
+    }
 
     fun loadIncident(id: String) {
         currentIncidentId = id
-        viewModelScope.launch {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             when (val result = getIncidentDetailUseCase(id)) {
-                is Resource.Success -> _uiState.update { it.copy(incident = result.data, isLoading = false) }
+                is Resource.Success -> _uiState.update { it.copy(incident = result.data, isLoading = false, error = null) }
                 is Resource.Error -> _uiState.update { it.copy(error = result.message, isLoading = false) }
                 Resource.Loading -> Unit
             }
         }
-        observeWebSocketForIncident(id)
     }
 
-    private fun observeWebSocketForIncident(id: String) {
-        viewModelScope.launch {
+    private fun observeWebSocketForIncident() {
+        if (webSocketJob?.isActive == true) return
+        webSocketJob = viewModelScope.launch {
             webSocketManager.socketEvents.collect { event ->
                 when {
-                    event is SocketEvent.IncidentUpdated && event.data["id"] == id -> loadIncident(id)
-                    event is SocketEvent.StatusChange && event.incidentId == id -> loadIncident(id)
+                    event is SocketEvent.IncidentUpdated && event.data["id"] == currentIncidentId -> loadIncident(currentIncidentId)
+                    event is SocketEvent.StatusChange && event.incidentId == currentIncidentId -> loadIncident(currentIncidentId)
                     else -> Unit
                 }
             }

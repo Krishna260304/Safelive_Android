@@ -80,7 +80,7 @@ private val DarkColorScheme = darkColorScheme(
 @Composable
 fun SafeLiveTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false, // Disabled to enforce modern branding palette
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {

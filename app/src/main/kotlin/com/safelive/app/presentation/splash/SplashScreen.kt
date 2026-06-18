@@ -1,4 +1,5 @@
 package com.safelive.app.presentation.splash
+import androidx.compose.material3.MaterialTheme
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -18,8 +19,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.safelive.app.navigation.Screen
-import com.safelive.app.ui.theme.PrimaryBlue
-import com.safelive.app.ui.theme.SecondaryTeal
 
 @Composable
 fun SplashScreen(
@@ -70,7 +69,7 @@ fun SplashScreen(
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    colors = listOf(PrimaryBlue, SecondaryTeal.copy(alpha = 0.7f))
+                    colors = listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.secondary)
                 )
             ),
         contentAlignment = Alignment.Center

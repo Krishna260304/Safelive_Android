@@ -1,4 +1,5 @@
 package com.safelive.app.presentation.dashboard
+import androidx.compose.material3.MaterialTheme
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.*
@@ -151,82 +152,53 @@ fun CitizenDashboardScreen(
 
 @Composable
 private fun DashboardStatsSection(stats: DashboardStats?, isLoading: Boolean) {
-    val gradientBrush = Brush.linearGradient(
-        colors = listOf(PrimaryBlue, PrimaryBlueLight)
-    )
-
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(12.dp, RoundedCornerShape(24.dp), spotColor = PrimaryBlue),
-        shape = RoundedCornerShape(24.dp)
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(gradientBrush)
-        ) {
-            Column(modifier = Modifier.padding(24.dp)) {
-                Text(
-                    text = "My Reports Overview",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Color.White,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Spacer(modifier = Modifier.height(20.dp))
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "My Reports Overview",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(modifier = Modifier.height(16.dp))
 
-                if (isLoading) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        repeat(3) {
-                            Box(
-                                modifier = Modifier
-                                    .size(70.dp)
-                                    .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(16.dp))
-                            )
-                        }
-                    }
-                } else {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        StatItem("Total", stats?.stats?.total ?: 0, Color.White)
-                        StatItem("Open", stats?.stats?.open ?: 0, Color(0xFFFDE047)) // Bright yellow
-                        StatItem("Resolved", stats?.stats?.resolved ?: 0, Color(0xFF86EFAC)) // Bright green
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.2f))
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceAround
-                    ) {
-                        StatItem("Pending", stats?.stats?.pending ?: 0, Color(0xFFFDBA74))
-                        StatItem("In Progress", stats?.stats?.inProgress ?: 0, Color(0xFF7DD3FC))
+            if (isLoading) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    repeat(3) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
                     }
                 }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    StatItem("Total", stats?.stats?.total ?: 0, MaterialTheme.colorScheme.primary)
+                    StatItem("Open", stats?.stats?.open ?: 0, com.safelive.app.ui.theme.StatusOpen)
+                    StatItem("Resolved", stats?.stats?.resolved ?: 0, com.safelive.app.ui.theme.StatusResolved)
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceAround
+                ) {
+                    StatItem("Pending", stats?.stats?.pending ?: 0, com.safelive.app.ui.theme.StatusPending)
+                    StatItem("In Progress", stats?.stats?.inProgress ?: 0, com.safelive.app.ui.theme.StatusInProgress)
+                }
             }
-            
-            // Decorative background circle
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .offset(x = 40.dp, y = (-40).dp)
-                    .size(140.dp)
-                    .background(Color.White.copy(alpha = 0.05f), CircleShape)
-            )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .offset(x = (-30).dp, y = 30.dp)
-                    .size(100.dp)
-                    .background(Color.White.copy(alpha = 0.05f), CircleShape)
-            )
         }
     }
 }
@@ -236,15 +208,14 @@ private fun StatItem(label: String, count: Int, color: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = count.toString(),
-            style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.ExtraBold,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
             color = color
         )
         Text(
             text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = Color.White.copy(alpha = 0.9f),
-            fontWeight = FontWeight.Medium
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -263,7 +234,7 @@ fun IncidentSummaryCard(incident: Incident, onClick: () -> Unit) {
             Box(
                 modifier = Modifier
                     .size(56.dp)
-                    .background(PrimaryBlue.copy(alpha = 0.08f), RoundedCornerShape(16.dp)),
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f), RoundedCornerShape(16.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(incident.category.toCategoryEmoji(), fontSize = 28.sp)
@@ -354,10 +325,10 @@ fun StatusChip(status: String) {
     ) {
         Text(
             text = status,
-            style = MaterialTheme.typography.labelSmall,
+            style = MaterialTheme.typography.bodySmall,
             color = color,
-            fontWeight = FontWeight.ExtraBold,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
         )
     }
 }
@@ -390,30 +361,31 @@ fun LoadingIncidentCard() {
 fun EmptyStateCard(icon: String, title: String, message: String) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(32.dp),
+                .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(
                 modifier = Modifier
-                    .size(80.dp)
-                    .background(PrimaryBlue.copy(alpha = 0.1f), CircleShape),
+                    .size(48.dp)
+                    .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Text(icon, fontSize = 40.sp)
+                Text(icon, fontSize = 24.sp)
             }
             Spacer(modifier = Modifier.height(16.dp))
-            Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
-            Spacer(modifier = Modifier.height(8.dp))
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
                 message,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )

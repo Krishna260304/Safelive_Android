@@ -1,4 +1,5 @@
 package com.safelive.app.presentation.incidents
+import androidx.compose.material3.MaterialTheme
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -29,7 +30,6 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.google.accompanist.permissions.*
 import com.safelive.app.navigation.Screen
-import com.safelive.app.ui.theme.PrimaryBlue
 import com.safelive.app.utils.Constants
 import com.safelive.app.utils.ImageUtils
 import dagger.hilt.android.EntryPointAccessors
@@ -96,7 +96,7 @@ fun CreateIncidentScreen(
                         Text("Save Draft")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = PrimaryBlue)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primary)
             )
         }
     ) { paddingValues ->
@@ -166,7 +166,7 @@ fun CreateIncidentScreen(
                         },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
                         if (uiState.isGpsLoading) {
                             CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
@@ -316,7 +316,7 @@ fun CreateIncidentScreen(
                     .fillMaxWidth()
                     .height(52.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
                 if (uiState.isLoading) {
                     CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))

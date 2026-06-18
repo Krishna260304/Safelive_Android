@@ -1,4 +1,5 @@
 package com.safelive.app.presentation.chat
+import androidx.compose.material3.MaterialTheme
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.*
@@ -18,7 +19,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.safelive.app.domain.model.Message
-import com.safelive.app.ui.theme.PrimaryBlue
 import com.safelive.app.utils.DateUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -67,7 +67,7 @@ fun ChatScreen(
                         Icon(Icons.Default.ArrowBack, null, tint = Color.White)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = PrimaryBlue)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primary)
             )
         },
         bottomBar = {
@@ -85,7 +85,7 @@ fun ChatScreen(
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
         ) {
             if (uiState.isLoading) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = PrimaryBlue)
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = MaterialTheme.colorScheme.primary)
             } else if (uiState.messages.isEmpty()) {
                 Column(
                     modifier = Modifier.align(Alignment.Center),
@@ -135,7 +135,7 @@ private fun ChatMessageBubble(message: Message, isFromCurrentUser: Boolean) {
         }
 
         Surface(
-            color = if (isFromCurrentUser) PrimaryBlue else MaterialTheme.colorScheme.surface,
+            color = if (isFromCurrentUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(
                 topStart = 16.dp,
                 topEnd = 16.dp,
@@ -183,7 +183,7 @@ private fun ChatInputBar(text: String, onTextChange: (String) -> Unit, onSend: (
                 shape = RoundedCornerShape(24.dp),
                 maxLines = 4,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = PrimaryBlue,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
                     unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
                 )
             )
@@ -193,7 +193,7 @@ private fun ChatInputBar(text: String, onTextChange: (String) -> Unit, onSend: (
                 enabled = text.isNotBlank(),
                 modifier = Modifier.size(52.dp),
                 colors = IconButtonDefaults.filledIconButtonColors(
-                    containerColor = PrimaryBlue,
+                    containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = Color.White,
                     disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant
                 )
