@@ -285,20 +285,28 @@ fun TeamManagementScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("Team Management", color = Color.White, fontWeight = FontWeight.Bold)
-                        Text("Create and manage team accounts", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.8f))
-                    }
-                },
-                navigationIcon = {
+            Surface(
+                color = SecondaryTeal,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .statusBarsPadding()
+                        .padding(horizontal = 4.dp, vertical = 12.dp)
+                        .fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     IconButton(onClick = { navController.navigateUp() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White)
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = SecondaryTeal)
-            )
+                    Column(
+                        modifier = Modifier.weight(1f).padding(end = 8.dp)
+                    ) {
+                        Text("Team Management", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Text("Create and manage team accounts", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.8f))
+                    }
+                }
+            }
         }
     ) { padding ->
         Column(
@@ -673,19 +681,26 @@ fun OfficialAlertsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("Real-Time Alert Center", color = Color.White, fontWeight = FontWeight.Bold)
-                        Text("Live monitoring of city incidents", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.8f))
-                    }
-                },
-                navigationIcon = {
+            Surface(
+                color = SecondaryTeal,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .statusBarsPadding()
+                        .padding(horizontal = 4.dp, vertical = 12.dp)
+                        .fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     IconButton(onClick = { navController.navigateUp() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White)
                     }
-                },
-                actions = {
+                    Column(
+                        modifier = Modifier.weight(1f).padding(end = 8.dp)
+                    ) {
+                        Text("Real-Time Alert Center", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Text("Live monitoring of city incidents", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.8f))
+                    }
                     // Filter toggles
                     Row(modifier = Modifier.padding(end = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         listOf("all" to "All Alerts", "critical" to "Critical (${uiState.alerts.count { it.type == "critical" }})").forEach { (key, label) ->
@@ -696,13 +711,16 @@ fun OfficialAlertsScreen(
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = Color.White,
                                     selectedLabelColor = SecondaryTeal
+                                ),
+                                border = FilterChipDefaults.filterChipBorder(
+                                    enabled = true, selected = uiState.filter == key,
+                                    borderColor = Color.White.copy(alpha = 0.5f)
                                 )
                             )
                         }
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = SecondaryTeal)
-            )
+                }
+            }
         }
     ) { padding ->
         Column(

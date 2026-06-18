@@ -37,13 +37,14 @@ class AuthRepositoryImpl @Inject constructor(
         password: String,
         userType: String,
         address: String,
-        pincode: String
+        pincode: String,
+        officialRole: String?,
+        workerSpecialization: String?
     ): Resource<User> {
         return try {
-            val request = mapOf(
+            val request = mutableMapOf(
                 "name" to fullName,
                 "fullName" to fullName,
-                "email" to email,
                 "phone" to mobile,
                 "mobile" to mobile,
                 "password" to password,
@@ -51,6 +52,11 @@ class AuthRepositoryImpl @Inject constructor(
                 "address" to address,
                 "pincode" to pincode
             )
+            if (email.isNotBlank()) {
+                request["email"] = email
+            }
+            officialRole?.let { request["officialRole"] = it }
+            workerSpecialization?.let { request["workerSpecialization"] = it }
             val response = authApi.register(request)
             if (response.success && response.data != null) {
                 dataStore.saveAuthToken(response.data.token)
@@ -154,4 +160,6 @@ class AuthRepositoryImpl @Inject constructor(
     override fun getUserId(): Flow<String?> = dataStore.userId
 
     override fun getUserName(): Flow<String?> = dataStore.userName
+
+    override fun getOfficialRole(): Flow<String?> = dataStore.officialRole
 }

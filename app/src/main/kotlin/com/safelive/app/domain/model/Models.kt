@@ -16,6 +16,12 @@ data class User(
 ) {
     val isCitizen: Boolean get() = userType.lowercase() == "local"
     val isOfficial: Boolean get() = userType.lowercase() == "official"
+    val displayRole: String
+        get() = if (userType.equals("official", ignoreCase = true) && !officialRole.isNullOrBlank()) {
+            officialRole.split("_", " ").joinToString(" ") { it.replaceFirstChar { char -> char.uppercase() } }
+        } else {
+            userType.replaceFirstChar { it.uppercase() }
+        }
 }
 
 data class Incident(

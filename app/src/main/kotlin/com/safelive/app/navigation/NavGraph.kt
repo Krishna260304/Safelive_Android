@@ -1,8 +1,12 @@
 package com.safelive.app.navigation
 
-import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -19,20 +23,23 @@ import com.safelive.app.presentation.official.OfficialDashboardScreen
 import com.safelive.app.presentation.official.IncidentQueueScreen
 import com.safelive.app.presentation.official.TeamManagementScreen
 import com.safelive.app.presentation.official.OfficialAlertsScreen
+import com.safelive.app.presentation.official.AssignedIncidentsScreen
+import com.safelive.app.presentation.official.OfficialAnalyticsScreen
 import com.safelive.app.presentation.profile.ProfileScreen
 import com.safelive.app.presentation.profile.EditProfileScreen
 import com.safelive.app.presentation.profile.ChangePasswordScreen
 import com.safelive.app.presentation.profile.NotificationSettingsScreen
 import com.safelive.app.presentation.splash.SplashScreen
 
-@OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun SafeLiveNavGraph(
-    navController: NavHostController = rememberNavController()
+    navController: NavHostController = rememberNavController(),
+    modifier: Modifier = Modifier
 ) {
     NavHost(
         navController = navController,
         startDestination = Screen.Splash.route,
+        modifier = modifier,
         enterTransition = {
             slideInHorizontally(
                 initialOffsetX = { it },
@@ -58,7 +65,11 @@ fun SafeLiveNavGraph(
             ) + fadeOut(animationSpec = tween(300))
         }
     ) {
-        composable(Screen.Splash.route) {
+        composable(
+            route = Screen.Splash.route,
+            enterTransition = { fadeIn(animationSpec = tween(300)) },
+            exitTransition = { fadeOut(animationSpec = tween(300)) }
+        ) {
             SplashScreen(navController = navController)
         }
 
@@ -160,6 +171,14 @@ fun SafeLiveNavGraph(
 
         composable(Screen.OfficialAlerts.route) {
             OfficialAlertsScreen(navController = navController)
+        }
+
+        composable(Screen.AssignedIncidents.route) {
+            AssignedIncidentsScreen(navController = navController)
+        }
+
+        composable(Screen.OfficialAnalytics.route) {
+            OfficialAnalyticsScreen(navController = navController)
         }
     }
 }

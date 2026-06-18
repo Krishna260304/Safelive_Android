@@ -40,6 +40,7 @@ class UserPreferencesDataStore @Inject constructor(
         val IS_LOGGED_IN = booleanPreferencesKey(Constants.PREF_IS_LOGGED_IN)
         val PUSH_NOTIFICATIONS = booleanPreferencesKey("push_notifications")
         val EMAIL_ALERTS = booleanPreferencesKey("email_alerts")
+        val FCM_TOKEN = stringPreferencesKey("fcm_token")
     }
 
     private val dataStore = context.dataStore
@@ -140,6 +141,10 @@ class UserPreferencesDataStore @Inject constructor(
         .catch { emit(emptyPreferences()) }
         .map { it[Keys.EMAIL_ALERTS] ?: true }
 
+    val fcmToken: Flow<String?> = dataStore.data
+        .catch { emit(emptyPreferences()) }
+        .map { it[Keys.FCM_TOKEN] }
+
     suspend fun saveTokens(accessToken: String, refreshToken: String) {
         dataStore.edit { prefs ->
             prefs[Keys.ACCESS_TOKEN] = accessToken
@@ -172,74 +177,21 @@ class UserPreferencesDataStore @Inject constructor(
 
     suspend fun saveUserProfile(user: User) {
         dataStore.edit { prefs ->
-            val existingEmail = prefs[Keys.USER_EMAIL].orEmpty().trim()
-            val existingPhone = prefs[Keys.USER_PHONE].orEmpty().trim()
-            val existingUserType = prefs[Keys.USER_TYPE].orEmpty().trim()
-            val existingOfficialRole = prefs[Keys.OFFICIAL_ROLE].orEmpty().trim()
-            val existingWorkerSpecialization = prefs[Keys.USER_WORKER_SPECIALIZATION].orEmpty().trim()
-            val existingAddress = prefs[Keys.USER_ADDRESS].orEmpty().trim()
-            val existingPincode = prefs[Keys.USER_PINCODE].orEmpty().trim()
-            val existingCreatedAt = prefs[Keys.USER_CREATED_AT].orEmpty().trim()
-            val existingProfilePictureUrl = prefs[Keys.USER_PROFILE_PICTURE_URL].orEmpty().trim()
-
             prefs[Keys.USER_ID] = user.id
-            if (user.email.isNotBlank()) {
-                prefs[Keys.USER_EMAIL] = user.email
-            } else if (existingEmail.isBlank()) {
-                prefs.remove(Keys.USER_EMAIL)
-            }
-
-            val resolvedPhone = user.phone?.trim().orEmpty()
-            if (resolvedPhone.isNotBlank()) {
-                prefs[Keys.USER_PHONE] = resolvedPhone
-            } else if (existingPhone.isBlank()) {
-                prefs.remove(Keys.USER_PHONE)
-            }
-
             prefs[Keys.USER_NAME] = user.fullName
-            if (user.userType.isNotBlank()) {
-                prefs[Keys.USER_TYPE] = user.userType
-            } else if (existingUserType.isBlank()) {
-                prefs.remove(Keys.USER_TYPE)
-            }
-
-            if (!user.officialRole.isNullOrBlank()) {
-                prefs[Keys.OFFICIAL_ROLE] = user.officialRole
-            } else if (existingOfficialRole.isBlank()) {
-                prefs.remove(Keys.OFFICIAL_ROLE)
-            }
-
-            if (!user.workerSpecialization.isNullOrBlank()) {
-                prefs[Keys.USER_WORKER_SPECIALIZATION] = user.workerSpecialization
-            } else if (existingWorkerSpecialization.isBlank()) {
-                prefs.remove(Keys.USER_WORKER_SPECIALIZATION)
-            }
-
-            if (!user.address.isNullOrBlank()) {
-                prefs[Keys.USER_ADDRESS] = user.address
-            } else if (existingAddress.isBlank()) {
-                prefs.remove(Keys.USER_ADDRESS)
-            }
-
-            if (!user.pincode.isNullOrBlank()) {
-                prefs[Keys.USER_PINCODE] = user.pincode
-            } else if (existingPincode.isBlank()) {
-                prefs.remove(Keys.USER_PINCODE)
-            }
-
-            if (!user.createdAt.isNullOrBlank()) {
-                prefs[Keys.USER_CREATED_AT] = user.createdAt
-            } else if (existingCreatedAt.isBlank()) {
-                prefs.remove(Keys.USER_CREATED_AT)
-            }
-
             prefs[Keys.USER_IS_VERIFIED] = user.isVerified
-            if (!user.profilePictureUrl.isNullOrBlank()) {
-                prefs[Keys.USER_PROFILE_PICTURE_URL] = user.profilePictureUrl
-            } else if (existingProfilePictureUrl.isBlank()) {
-                prefs.remove(Keys.USER_PROFILE_PICTURE_URL)
-            }
             prefs[Keys.IS_LOGGED_IN] = true
+
+            // Only overwrite optional fields if the new value is non-blank
+            if (user.email.isNotBlank()) prefs[Keys.USER_EMAIL] = user.email
+            user.phone?.trim()?.takeIf { it.isNotBlank() }?.let { prefs[Keys.USER_PHONE] = it }
+            if (user.userType.isNotBlank()) prefs[Keys.USER_TYPE] = user.userType
+            user.officialRole?.trim()?.takeIf { it.isNotBlank() }?.let { prefs[Keys.OFFICIAL_ROLE] = it }
+            user.workerSpecialization?.trim()?.takeIf { it.isNotBlank() }?.let { prefs[Keys.USER_WORKER_SPECIALIZATION] = it }
+            user.address?.trim()?.takeIf { it.isNotBlank() }?.let { prefs[Keys.USER_ADDRESS] = it }
+            user.pincode?.trim()?.takeIf { it.isNotBlank() }?.let { prefs[Keys.USER_PINCODE] = it }
+            user.createdAt?.trim()?.takeIf { it.isNotBlank() }?.let { prefs[Keys.USER_CREATED_AT] = it }
+            user.profilePictureUrl?.trim()?.takeIf { it.isNotBlank() }?.let { prefs[Keys.USER_PROFILE_PICTURE_URL] = it }
         }
     }
 
@@ -285,5 +237,9 @@ class UserPreferencesDataStore @Inject constructor(
 
     suspend fun setEmailAlertsEnabled(enabled: Boolean) {
         dataStore.edit { prefs -> prefs[Keys.EMAIL_ALERTS] = enabled }
+    }
+
+    suspend fun saveFcmToken(token: String) {
+        dataStore.edit { prefs -> prefs[Keys.FCM_TOKEN] = token }
     }
 }

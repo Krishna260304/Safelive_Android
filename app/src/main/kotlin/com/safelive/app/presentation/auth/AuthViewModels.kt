@@ -118,6 +118,9 @@ data class RegisterUiState(
     val password: String = "",
     val confirmPassword: String = "",
     val userType: String = "local",
+    val officialRole: String = "department",
+    val workerSpecialization: String = "",
+    val workerSpecializationExpanded: Boolean = false,
     val isPasswordVisible: Boolean = false,
     val isLoading: Boolean = false,
     val error: String? = null,
@@ -182,6 +185,9 @@ class RegisterViewModel @Inject constructor(
     fun onPasswordChange(password: String) = _uiState.update { it.copy(password = password, error = null) }
     fun onConfirmPasswordChange(confirm: String) = _uiState.update { it.copy(confirmPassword = confirm, error = null) }
     fun onUserTypeChange(type: String) = _uiState.update { it.copy(userType = type) }
+    fun onOfficialRoleChange(role: String) = _uiState.update { it.copy(officialRole = role) }
+    fun onWorkerSpecializationChange(spec: String) = _uiState.update { it.copy(workerSpecialization = spec, workerSpecializationExpanded = false, error = null) }
+    fun onWorkerSpecializationExpandedChange(expanded: Boolean) = _uiState.update { it.copy(workerSpecializationExpanded = expanded) }
     fun togglePasswordVisibility() = _uiState.update { it.copy(isPasswordVisible = !it.isPasswordVisible) }
 
     fun register() {
@@ -210,7 +216,7 @@ class RegisterViewModel @Inject constructor(
             val result = registerUseCase(
                 state.fullName, state.email, state.phone,
                 state.password, state.confirmPassword, state.userType,
-                state.address, state.pincode
+                state.address, state.pincode, state.officialRole, state.workerSpecialization
             )
             when (result) {
                 is Resource.Success<*> -> _uiState.update { it.copy(isLoading = false, isSuccess = true) }

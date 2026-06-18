@@ -24,6 +24,7 @@ import com.safelive.app.navigation.Screen
 import com.safelive.app.ui.theme.PrimaryBlue
 import com.safelive.app.ui.theme.SuccessGreen
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegisterScreen(
     navController: NavController,
@@ -202,7 +203,92 @@ fun RegisterScreen(
                         )
 
                     } else {
-                        // Official User Form (Keep it similar for now)
+                        // Official User Form
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text("Official Role", style = MaterialTheme.typography.labelMedium, modifier = Modifier.fillMaxWidth())
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            val isDepartment = uiState.officialRole == "department"
+                            Button(
+                                onClick = { viewModel.onOfficialRoleChange("department") },
+                                modifier = Modifier.weight(1f).height(40.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isDepartment) PrimaryBlue else Color.White,
+                                    contentColor = if (isDepartment) Color.White else Color.Black
+                                ),
+                                border = BorderStroke(1.dp, if (isDepartment) PrimaryBlue else Color.LightGray)
+                            ) {
+                                Text("Department", style = MaterialTheme.typography.labelMedium)
+                            }
+                            
+                            val isWorker = uiState.officialRole == "worker"
+                            Button(
+                                onClick = { viewModel.onOfficialRoleChange("worker") },
+                                modifier = Modifier.weight(1f).height(40.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isWorker) PrimaryBlue else Color.White,
+                                    contentColor = if (isWorker) Color.White else Color.Black
+                                ),
+                                border = BorderStroke(1.dp, if (isWorker) PrimaryBlue else Color.LightGray)
+                            ) {
+                                Text("Worker", style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+                        
+                        if (uiState.officialRole == "worker") {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text("Worker Category", style = MaterialTheme.typography.labelMedium, modifier = Modifier.fillMaxWidth())
+                            Spacer(modifier = Modifier.height(4.dp))
+                            
+                            val workerCategories = listOf(
+                                "Road Maintenance Worker",
+                                "Electrician",
+                                "Plumber",
+                                "Drainage Worker",
+                                "Sanitation Worker",
+                                "Water Supply Technician",
+                                "Technician",
+                                "Emergency Response Worker",
+                                "Security Officer",
+                                "Complaint Manager",
+                                "Operations Manager",
+                                "General Worker",
+                                "Other"
+                            )
+                            
+                            ExposedDropdownMenuBox(
+                                expanded = uiState.workerSpecializationExpanded,
+                                onExpandedChange = viewModel::onWorkerSpecializationExpandedChange
+                            ) {
+                                OutlinedTextField(
+                                    value = uiState.workerSpecialization.ifEmpty { "Select worker category" },
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = uiState.workerSpecializationExpanded) },
+                                    modifier = Modifier.fillMaxWidth().menuAnchor(),
+                                    shape = RoundedCornerShape(8.dp),
+                                    textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                        color = if (uiState.workerSpecialization.isEmpty()) Color.Gray else Color.Black
+                                    )
+                                )
+                                ExposedDropdownMenu(
+                                    expanded = uiState.workerSpecializationExpanded,
+                                    onDismissRequest = { viewModel.onWorkerSpecializationExpandedChange(false) }
+                                ) {
+                                    workerCategories.forEach { category ->
+                                        DropdownMenuItem(
+                                            text = { Text(category) },
+                                            onClick = { viewModel.onWorkerSpecializationChange(category) }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
                         SafeLiveTextField(
                             value = uiState.fullName,
                             onValueChange = viewModel::onFullNameChange,
@@ -211,27 +297,74 @@ fun RegisterScreen(
                             keyboardType = KeyboardType.Text
                         )
                         Spacer(modifier = Modifier.height(12.dp))
+                        
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            SafeLiveTextField(
+                                value = uiState.email,
+                                onValueChange = viewModel::onEmailChange,
+                                label = if (uiState.officialRole == "worker") "Email Address (Optional)" else "Email Address",
+                                placeholder = "abc@gmail.com",
+                                keyboardType = KeyboardType.Email,
+                                modifier = Modifier.weight(1f)
+                            )
+                            SafeLiveTextField(
+                                value = uiState.phone,
+                                onValueChange = viewModel::onPhoneChange,
+                                label = "Phone Number",
+                                placeholder = "9876543210",
+                                prefix = "+91",
+                                keyboardType = KeyboardType.Phone,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
                         SafeLiveTextField(
-                            value = uiState.email,
-                            onValueChange = viewModel::onEmailChange,
-                            label = "Official Email",
-                            placeholder = "name@safelive.in",
-                            keyboardType = KeyboardType.Email
+                            value = uiState.address,
+                            onValueChange = viewModel::onAddressChange,
+                            label = "Address",
+                            placeholder = "Enter your complete address",
+                            keyboardType = KeyboardType.Text,
+                            minLines = 3
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         SafeLiveTextField(
-                            value = uiState.phone,
-                            onValueChange = viewModel::onPhoneChange,
-                            label = "Phone Number",
-                            placeholder = "9876543210",
-                            prefix = "+91",
-                            keyboardType = KeyboardType.Phone
+                            value = uiState.pincode,
+                            onValueChange = viewModel::onPincodeChange,
+                            label = "Pincode",
+                            placeholder = "123456",
+                            keyboardType = KeyboardType.Number,
+                            modifier = Modifier.fillMaxWidth(0.5f).align(Alignment.Start)
                         )
+                        if (uiState.isCheckingPincode) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Checking pincode...",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.Gray,
+                                modifier = Modifier.align(Alignment.Start)
+                            )
+                        } else if (!uiState.pincodeLookupMessage.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = uiState.pincodeLookupMessage!!,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (uiState.isPincodeValid) SuccessGreen else MaterialTheme.colorScheme.error,
+                                modifier = Modifier.align(Alignment.Start)
+                            )
+                        }
+
                         Spacer(modifier = Modifier.height(12.dp))
                         OutlinedTextField(
                             value = uiState.password,
                             onValueChange = viewModel::onPasswordChange,
                             label = { Text("Password", style = MaterialTheme.typography.labelSmall) },
+                            placeholder = { Text("Create a strong password", style = MaterialTheme.typography.bodySmall, color = Color.Gray) },
+                            trailingIcon = {
+                                IconButton(onClick = viewModel::togglePasswordVisibility) {
+                                    Icon(if (uiState.isPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility, null)
+                                }
+                            },
                             visualTransformation = if (uiState.isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                             singleLine = true,
@@ -243,6 +376,12 @@ fun RegisterScreen(
                             value = uiState.confirmPassword,
                             onValueChange = viewModel::onConfirmPasswordChange,
                             label = { Text("Confirm Password", style = MaterialTheme.typography.labelSmall) },
+                            placeholder = { Text("Confirm your password", style = MaterialTheme.typography.bodySmall, color = Color.Gray) },
+                            trailingIcon = {
+                                IconButton(onClick = viewModel::togglePasswordVisibility) {
+                                    Icon(if (uiState.isPasswordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility, null)
+                                }
+                            },
                             visualTransformation = if (uiState.isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                             singleLine = true,

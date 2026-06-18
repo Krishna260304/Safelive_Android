@@ -19,11 +19,20 @@ import javax.inject.Inject
 data class OfficialDashboardUiState(
     val stats: DashboardStats? = null,
     val officialName: String = "",
+    val officialRole: String = "",
+    val userType: String = "",
     val isLoading: Boolean = false,
     val error: String? = null,
     val unreadCount: Int = 0,
     val loggedOut: Boolean = false
-)
+) {
+    val displayRole: String
+        get() = if (userType.equals("official", ignoreCase = true) && officialRole.isNotBlank()) {
+            officialRole.split("_", " ").joinToString(" ") { it.replaceFirstChar { char -> char.uppercase() } }
+        } else {
+            userType.replaceFirstChar { it.uppercase() }
+        }
+}
 
 @HiltViewModel
 class OfficialDashboardViewModel @Inject constructor(
@@ -60,6 +69,16 @@ class OfficialDashboardViewModel @Inject constructor(
         viewModelScope.launch {
             authRepository.getUserName().collect { name ->
                 _uiState.update { it.copy(officialName = name ?: "Official") }
+            }
+        }
+        viewModelScope.launch {
+            authRepository.getOfficialRole().collect { role ->
+                _uiState.update { it.copy(officialRole = role ?: "") }
+            }
+        }
+        viewModelScope.launch {
+            authRepository.getUserType().collect { type ->
+                _uiState.update { it.copy(userType = type ?: "") }
             }
         }
     }

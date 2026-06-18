@@ -328,3 +328,29 @@ data class NotificationDto(
         createdAt = createdAt
     )
 }
+
+/** Typed analytics data from GET analytics/dashboard */
+data class DashboardDataDto(
+    val totalIssues: Int = 0,
+    val resolvedIssues: Int = 0,
+    val pendingIssues: Int = 0,
+    val inProgressIssues: Int = 0,
+    val openIssues: Int = 0,
+    val resolutionRate: Double = 0.0,
+    val avgResolutionHours: Double = 0.0,
+    val categoryBreakdown: Map<String, Int> = emptyMap(),
+    val priorityBreakdown: Map<String, Int> = emptyMap(),
+    val statusBreakdown: Map<String, Int> = emptyMap(),
+    val recentTrend: List<DailyCountDto> = emptyList()
+)
+
+data class DailyCountDto(
+    val date: String = "",
+    val count: Int = 0
+)
+
+/** Request body for FCM token registration */
+data class FcmTokenRequest(
+    val fcmToken: String,
+    val platform: String = "android"
+)

@@ -192,7 +192,7 @@ fun ProfileScreen(
                         shape = RoundedCornerShape(100.dp)
                     ) {
                         Text(
-                            text = "🛡️ ${uiState.user?.userType?.replaceFirstChar { it.uppercase() } ?: ""}",
+                            text = "🛡️ ${uiState.user?.displayRole ?: ""}",
                             color = Color.White,
                             style = MaterialTheme.typography.labelMedium,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
@@ -231,7 +231,7 @@ fun ProfileScreen(
                     ProfileInfoItem(
                         icon = Icons.Default.Badge,
                         label = "Account Type",
-                        value = uiState.user?.userType?.replaceFirstChar { it.uppercase() } ?: "—"
+                        value = uiState.user?.displayRole ?: "—"
                     )
                 }
             }
@@ -281,7 +281,7 @@ fun ProfileScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "SafeLive v1.0.0 • Government of India",
+                text = "SafeLive v1.0.0",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier

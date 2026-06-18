@@ -137,6 +137,15 @@ class WebSocketManager @Inject constructor(
                     message = data["message"] as? String ?: "",
                     severity = data["severity"] as? String ?: "high"
                 )
+                "warning", "backend_warning", "ai_warning" -> SocketEvent.BackendWarning(
+                    warningId = data["id"] as? String ?: data["warningId"] as? String ?: "",
+                    title = data["title"] as? String ?: "Warning",
+                    message = data["message"] as? String ?: data["body"] as? String ?: "",
+                    // Severity is set exclusively by the backend AI — Android does NOT modify this
+                    severity = (data["severity"] as? String ?: "LOW").uppercase(),
+                    actionLabel = data["actionLabel"] as? String,
+                    actionRoute = data["actionRoute"] as? String
+                )
                 Constants.EVENT_TYPING -> SocketEvent.TypingIndicator(
                     chatId = data["chat_id"] as? String ?: "",
                     userId = data["user_id"] as? String ?: "",

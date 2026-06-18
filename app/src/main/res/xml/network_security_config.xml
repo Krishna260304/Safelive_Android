@@ -2,5 +2,10 @@
 <network-security-config>
     <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">api.safelive.in</domain>
+        <!-- 
+            TODO: Add your actual SHA-256 certificate pins here before production release. 
+            Without valid pins, network requests to api.safelive.in will fail if pinning is enabled.
+            Example: <pin digest="SHA-256">base64-encoded-hash</pin>
+        -->
     </domain-config>
 </network-security-config>

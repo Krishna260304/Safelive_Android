@@ -34,4 +34,5 @@ sealed class Screen(val route: String) {
     data object AssignedIncidents : Screen("assigned_incidents")
     data object TeamManagement : Screen("team_management")
     data object OfficialAlerts : Screen("official_alerts")
+    data object OfficialAnalytics : Screen("official_analytics")
 }

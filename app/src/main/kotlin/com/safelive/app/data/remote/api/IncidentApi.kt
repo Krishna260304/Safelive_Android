@@ -11,7 +11,8 @@ interface IncidentApi {
         @Query("status") status: String? = null,
         @Query("category") category: String? = null,
         @Query("priority") priority: String? = null,
-        @Query("search") search: String? = null
+        @Query("search") search: String? = null,
+        @Query("sortBy") sortBy: String? = null
     ): ApiResponse<List<IncidentDto>>
 
     @GET("issues/{id}")
@@ -33,5 +34,5 @@ interface IncidentApi {
     suspend fun getStats(): ApiResponse<IncidentStatsDto>
 
     @GET("analytics/dashboard")
-    suspend fun getDashboardData(): ApiResponse<Map<String, Any>>
+    suspend fun getDashboardData(): ApiResponse<DashboardDataDto>
 }

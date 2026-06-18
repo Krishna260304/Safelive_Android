@@ -34,13 +34,17 @@ class RegisterUseCase @Inject constructor(
         confirmPassword: String,
         userType: String,
         address: String,
-        pincode: String
+        pincode: String,
+        officialRole: String? = null,
+        workerSpecialization: String? = null
     ): Resource<*> {
         val nameValidation = ValidationUtils.validateName(fullName)
         if (!nameValidation.isValid) return Resource.Error(nameValidation.errorMessage ?: "Invalid name")
 
-        val emailValidation = ValidationUtils.validateEmail(email)
-        if (!emailValidation.isValid) return Resource.Error(emailValidation.errorMessage ?: "Invalid email")
+        if (!(userType == "official" && officialRole == "worker" && email.isBlank())) {
+            val emailValidation = ValidationUtils.validateEmail(email)
+            if (!emailValidation.isValid) return Resource.Error(emailValidation.errorMessage ?: "Invalid email")
+        }
 
         val phoneValidation = ValidationUtils.validatePhone(phone)
         if (!phoneValidation.isValid) return Resource.Error(phoneValidation.errorMessage ?: "Invalid phone")
@@ -53,8 +57,16 @@ class RegisterUseCase @Inject constructor(
         }
 
         if (userType.isBlank()) return Resource.Error("Please select user type")
+        
+        if (userType == "official" && officialRole == "worker" && workerSpecialization.isNullOrBlank()) {
+            return Resource.Error("Please select worker category")
+        }
 
-        return authRepository.register(fullName.trim(), email.trim(), phone.trim(), password, userType, address.trim(), pincode.trim())
+        return authRepository.register(
+            fullName.trim(), email.trim(), phone.trim(), password, userType, address.trim(), pincode.trim(),
+            if (userType == "official") officialRole else null,
+            if (userType == "official" && officialRole == "worker") workerSpecialization else null
+        )
     }
 }
 

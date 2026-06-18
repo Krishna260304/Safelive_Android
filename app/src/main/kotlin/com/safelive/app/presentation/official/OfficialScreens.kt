@@ -7,12 +7,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -51,17 +54,40 @@ fun OfficialDashboardScreen(
         drawerContent = {
             ModalDrawerSheet {
                 Spacer(Modifier.height(16.dp))
-                Text("Department Portal", modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = SecondaryTeal)
+                Text("${uiState.displayRole} Portal", modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = SecondaryTeal)
                 HorizontalDivider()
                 
-                val navItems = listOf(
-                    Triple("Home", Icons.Default.Home, null as String?),
-                    Triple("Tickets", Icons.Default.Assignment, Screen.IncidentQueue.route),
-                    Triple("Team", Icons.Default.Group, Screen.TeamManagement.route),
-                    Triple("Live Map", Icons.Default.Map, Screen.MapView.route),
-                    Triple("Alerts", Icons.Default.Notifications, Screen.OfficialAlerts.route),
-                    Triple("Profile", Icons.Default.Person, Screen.Profile.route)
-                )
+                val navItems = if (uiState.officialRole.equals("supervisor", ignoreCase = true)) {
+                    listOf(
+                        Triple("Dashboard", Icons.Default.Home, null as String?),
+                        Triple("Tickets", Icons.AutoMirrored.Filled.Assignment, Screen.IncidentQueue.route),
+                        Triple("Live Map", Icons.Default.LocationOn, Screen.MapView.route),
+                        Triple("Alerts", Icons.Default.Notifications, Screen.OfficialAlerts.route),
+                        Triple("Profile", Icons.Default.Person, Screen.Profile.route)
+                    )
+                } else if (uiState.officialRole.equals("field_inspector", ignoreCase = true)) {
+                    listOf(
+                        Triple("Dashboard", Icons.Default.Home, null as String?),
+                        Triple("Tickets", Icons.AutoMirrored.Filled.Assignment, Screen.IncidentQueue.route),
+                        Triple("Profile", Icons.Default.Person, Screen.Profile.route)
+                    )
+                } else if (uiState.officialRole.equals("worker", ignoreCase = true)) {
+                    listOf(
+                        Triple("Dashboard", Icons.Default.Home, null as String?),
+                        Triple("Tickets", Icons.AutoMirrored.Filled.Assignment, Screen.IncidentQueue.route),
+                        Triple("Profile", Icons.Default.Person, Screen.Profile.route)
+                    )
+                } else {
+                    listOf(
+                        Triple("Home", Icons.Default.Home, null as String?),
+                        Triple("Tickets", Icons.AutoMirrored.Filled.Assignment, Screen.IncidentQueue.route),
+                        Triple("Team", Icons.Default.Group, Screen.TeamManagement.route),
+                        Triple("Live Map", Icons.Default.Map, Screen.MapView.route),
+                        Triple("Analytics", Icons.Default.BarChart, Screen.OfficialAnalytics.route),
+                        Triple("Alerts", Icons.Default.Notifications, Screen.OfficialAlerts.route),
+                        Triple("Profile", Icons.Default.Person, Screen.Profile.route)
+                    )
+                }
                 
                 navItems.forEach { (label, icon, route) ->
                     NavigationDrawerItem(
@@ -83,7 +109,7 @@ fun OfficialDashboardScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text("Department Portal", color = Color.White, fontWeight = FontWeight.Bold)
+                        Text("${uiState.displayRole} Portal", color = Color.White, fontWeight = FontWeight.Bold)
                         Text(
                             "Welcome, ${uiState.officialName}",
                             style = MaterialTheme.typography.bodySmall,
@@ -164,42 +190,80 @@ fun OfficialDashboardScreen(
 
 @Composable
 private fun OfficialStatsSection(stats: com.safelive.app.domain.model.DashboardStats?, isLoading: Boolean) {
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        val cardColors = listOf(
-            Triple("Pending", stats?.stats?.pending ?: 0, WarningOrange),
-            Triple("In Progress", stats?.stats?.inProgress ?: 0, PrimaryBlue),
-            Triple("Resolved", stats?.stats?.resolved ?: 0, SuccessGreen)
-        )
-        cardColors.forEach { (label, count, color) ->
-            Card(
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.12f))
-            ) {
-                Column(
-                    modifier = Modifier.padding(12.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = color)
-                    } else {
-                        Text(
-                            text = count.toString(),
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = color
-                        )
-                    }
-                    Text(
-                        label,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+        // Row 1: Total, Open, Resolved
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            val row1 = listOf(
+                Triple("Total", stats?.stats?.total ?: 0, com.safelive.app.ui.theme.PrimaryBlue),
+                Triple("Open", stats?.stats?.open ?: 0, com.safelive.app.ui.theme.WarningOrange),
+                Triple("Resolved", stats?.stats?.resolved ?: 0, com.safelive.app.ui.theme.SuccessGreen)
+            )
+            row1.forEach { (label, count, color) ->
+                StatKpiCard(
+                    label = label,
+                    count = count,
+                    color = color,
+                    isLoading = isLoading,
+                    modifier = Modifier.weight(1f)
+                )
             }
+        }
+        // Row 2: Pending, In Progress
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            StatKpiCard(
+                label = "Pending",
+                count = stats?.stats?.pending ?: 0,
+                color = com.safelive.app.ui.theme.PriorityMedium,
+                isLoading = isLoading,
+                modifier = Modifier.weight(1f)
+            )
+            StatKpiCard(
+                label = "In Progress",
+                count = stats?.stats?.inProgress ?: 0,
+                color = com.safelive.app.ui.theme.SecondaryTeal,
+                isLoading = isLoading,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+
+@Composable
+private fun StatKpiCard(label: String, count: Int, color: androidx.compose.ui.graphics.Color, isLoading: Boolean, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier,
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.12f))
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = color)
+            } else {
+                Text(
+                    text = count.toString(),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = color
+                )
+            }
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -276,7 +340,7 @@ private fun String?.toPriorityBorderColor() = when (this?.lowercase()) {
 }
 
 @Composable
-private fun OfficialTicketCard(ticket: Ticket, onClick: () -> Unit) {
+fun OfficialTicketCard(ticket: Ticket, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -344,7 +408,7 @@ fun IncidentQueueScreen(
                 title = { Text("Incident Queue", color = Color.White, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(Icons.Default.ArrowBack, null, tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = SecondaryTeal)

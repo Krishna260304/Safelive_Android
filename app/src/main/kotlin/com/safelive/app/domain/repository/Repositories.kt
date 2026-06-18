@@ -13,7 +13,9 @@ interface AuthRepository {
         password: String,
         userType: String,
         address: String,
-        pincode: String
+        pincode: String,
+        officialRole: String? = null,
+        workerSpecialization: String? = null
     ): Resource<User>
     suspend fun forgotPassword(email: String): Resource<String>
     suspend fun verifyOtp(email: String, otp: String): Resource<String>
@@ -26,6 +28,7 @@ interface AuthRepository {
     fun getUserType(): Flow<String?>
     fun getUserId(): Flow<String?>
     fun getUserName(): Flow<String?>
+    fun getOfficialRole(): Flow<String?>
 }
 
 interface IncidentRepository {

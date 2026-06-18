@@ -4,6 +4,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
@@ -34,14 +36,18 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.safelive.app.data.websocket.WebSocketManager
 
 @HiltViewModel
 class MainAppViewModel @Inject constructor(
-    userPreferencesDataStore: UserPreferencesDataStore
+    userPreferencesDataStore: UserPreferencesDataStore,
+    private val webSocketManager: WebSocketManager
 ) : ViewModel() {
     val isOfficial: StateFlow<Boolean> = userPreferencesDataStore.userType
         .map { it?.lowercase() == "official" }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val socketEvents = webSocketManager.socketEvents
 }
 
 sealed class BottomNavItem(val title: String, val icon: ImageVector, val route: String) {
@@ -72,6 +78,7 @@ fun MainAppScreen(
     val showBottomBar = !isOfficial && bottomBarRoutes.any { currentDestination?.route?.startsWith(it) == true }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0.dp),
         bottomBar = {
             AnimatedVisibility(
                 visible = showBottomBar,
@@ -117,8 +124,20 @@ fun MainAppScreen(
             }
         }
     ) { innerPadding ->
-        Box(modifier = Modifier.padding(bottom = if (showBottomBar) innerPadding.calculateBottomPadding() else innerPadding.calculateBottomPadding())) {
-            SafeLiveNavGraph(navController = navController)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = if (showBottomBar) innerPadding.calculateBottomPadding() else innerPadding.calculateBottomPadding())
+        ) {
+            SafeLiveNavGraph(
+                navController = navController,
+                modifier = Modifier.fillMaxSize()
+            )
+
+            WarningPopupHost(
+                socketEvents = viewModel.socketEvents,
+                onNavigateTo = { route -> navController.navigate(route) }
+            )
         }
     }
 }

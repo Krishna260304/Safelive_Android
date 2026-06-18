@@ -131,7 +131,7 @@ fun SplashScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "Powered by Government of India",
+                text = "Powered by SafeLive",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f),
                 modifier = Modifier.alpha(alpha.value)

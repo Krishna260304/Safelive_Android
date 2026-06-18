@@ -18,4 +18,7 @@ interface NotificationApi {
 
     @DELETE("notifications/{id}")
     suspend fun deleteNotification(@Path("id") id: String): ApiResponse<Any>
+
+    @POST("notifications/register-token")
+    suspend fun registerFcmToken(@Body request: FcmTokenRequest): ApiResponse<Any>
 }
