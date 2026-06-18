@@ -1,5 +1,6 @@
 package com.safelive.app.data.remote.dto
 
+import com.google.gson.JsonElement
 import com.google.gson.annotations.SerializedName
 import com.safelive.app.domain.model.*
 
@@ -95,7 +96,9 @@ data class IncidentDto(
     val reporterDeleteLocked: Boolean?,
     val createdAt: String,
     val updatedAt: String?,
-    val hasMessages: Boolean?
+    val hasMessages: Boolean?,
+    val progressPercent: Int?,
+    val workerIds: List<String>?
 ) {
     fun toDomain(): Incident = Incident(
         id = id,
@@ -128,7 +131,9 @@ data class IncidentDto(
         reporterDeleteLocked = reporterDeleteLocked,
         createdAt = createdAt,
         updatedAt = updatedAt,
-        hasMessages = hasMessages
+        hasMessages = hasMessages,
+        progressPercent = progressPercent,
+        workerIds = workerIds
     )
 }
 
@@ -361,3 +366,85 @@ data class FcmTokenRequest(
     val fcmToken: String,
     val platform: String = "android"
 )
+
+data class LogbookEntryDto(
+    val id: String? = null,
+    val action: String? = null,
+    val title: String? = null,
+    val message: JsonElement? = null,
+    val note: JsonElement? = null,
+    val notes: JsonElement? = null,
+    val details: JsonElement? = null,
+    val description: JsonElement? = null,
+    val statusFrom: String? = null,
+    val statusTo: String? = null,
+    val actorName: String? = null,
+    val actorRole: String? = null,
+    val createdAt: String? = null,
+    val timestamp: String? = null,
+    val updatedAt: String? = null
+) {
+    fun toDomain(): LogbookEntry = LogbookEntry(
+        id = id,
+        action = action ?: title,
+        message = message.asFlexibleText()
+            ?: note.asFlexibleText()
+            ?: notes.asFlexibleText()
+            ?: details.asFlexibleText()
+            ?: description.asFlexibleText(),
+        statusFrom = statusFrom,
+        statusTo = statusTo,
+        actorName = actorName,
+        actorRole = actorRole,
+        createdAt = createdAt ?: timestamp ?: updatedAt
+    )
+}
+
+fun JsonElement?.asFlexibleText(): String? {
+    if (this == null || isJsonNull) return null
+
+    if (isJsonPrimitive) {
+        val primitive = asJsonPrimitive
+        return when {
+            primitive.isString -> primitive.asString
+            primitive.isBoolean -> primitive.asBoolean.toString()
+            primitive.isNumber -> primitive.asNumber.toString()
+            else -> primitive.toString()
+        }
+    }
+
+    if (isJsonArray) {
+        return asJsonArray.joinToString(", ") { element ->
+            element.asFlexibleText().orEmpty()
+        }.ifBlank { toString() }
+    }
+
+    if (isJsonObject) {
+        val objectCandidates = listOf(
+            "message",
+            "note",
+            "notes",
+            "details",
+            "description",
+            "text",
+            "title",
+            "label",
+            "value",
+            "action",
+            "summary"
+        )
+        for (key in objectCandidates) {
+            val candidate = asJsonObject.get(key)?.asFlexibleText()
+            if (!candidate.isNullOrBlank()) return candidate
+        }
+
+        val readablePairs = asJsonObject.entrySet().mapNotNull { (key, value) ->
+            value.asFlexibleText()?.takeIf { it.isNotBlank() }?.let { "$key: $it" }
+        }
+        if (readablePairs.isNotEmpty()) {
+            return readablePairs.joinToString(", ")
+        }
+    }
+
+    return toString()
+}

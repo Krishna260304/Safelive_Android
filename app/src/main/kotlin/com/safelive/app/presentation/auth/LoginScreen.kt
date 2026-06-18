@@ -1,3 +1,4 @@
+@file:Suppress("DEPRECATION")
 package com.safelive.app.presentation.auth
 import androidx.compose.material3.MaterialTheme
 
@@ -74,7 +75,11 @@ fun LoginScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp).align(Alignment.Start)
             ) {
-                Text("🛡️", fontSize = 32.sp)
+                androidx.compose.foundation.Image(
+                    painter = androidx.compose.ui.res.painterResource(id = com.safelive.app.R.drawable.safelive_logo),
+                    contentDescription = "SafeLive Logo",
+                    modifier = Modifier.size(64.dp)
+                )
                 Spacer(modifier = Modifier.width(8.dp))
                 // Text("SafeLive", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
             }

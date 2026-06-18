@@ -53,18 +53,26 @@ fun CitizenDashboardScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text(
-                            text = "SafeLive",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.onSurface
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.foundation.Image(
+                            painter = androidx.compose.ui.res.painterResource(id = com.safelive.app.R.drawable.safelive_logo),
+                            contentDescription = "SafeLive Logo",
+                            modifier = Modifier.size(32.dp)
                         )
-                        Text(
-                            text = "Welcome back, ${uiState.userName.ifBlank { "Citizen" }} 👋",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = "SafeLive",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Welcome back, ${uiState.userName.ifBlank { "Citizen" }} 👋",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 },
                 actions = {
@@ -104,16 +112,15 @@ fun CitizenDashboardScreen(
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
                 item {
-                    Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                        DashboardStatsSection(stats = uiState.stats, isLoading = uiState.isLoading)
-                    }
+                    CitizenQuickActions(navController)
                 }
 
                 item {
                     Text(
-                        text = "Recent Activity",
+                        text = "Recent Reports",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground,
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
                 }
@@ -151,72 +158,80 @@ fun CitizenDashboardScreen(
 }
 
 @Composable
-private fun DashboardStatsSection(stats: DashboardStats?, isLoading: Boolean) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+private fun CitizenQuickActions(navController: NavController) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "My Reports Overview",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.SemiBold
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            QuickActionCard(
+                title = "Report Incident",
+                icon = Icons.Default.AddCircle,
+                color = MaterialTheme.colorScheme.primary,
+                onClick = { navController.navigate(Screen.CreateIncident.route) },
+                modifier = Modifier.weight(1f)
             )
-            Spacer(modifier = Modifier.height(16.dp))
-
-            if (isLoading) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    repeat(3) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                    }
-                }
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    StatItem("Total", stats?.stats?.total ?: 0, MaterialTheme.colorScheme.primary)
-                    StatItem("Open", stats?.stats?.open ?: 0, com.safelive.app.ui.theme.StatusOpen)
-                    StatItem("Resolved", stats?.stats?.resolved ?: 0, com.safelive.app.ui.theme.StatusResolved)
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceAround
-                ) {
-                    StatItem("Pending", stats?.stats?.pending ?: 0, com.safelive.app.ui.theme.StatusPending)
-                    StatItem("In Progress", stats?.stats?.inProgress ?: 0, com.safelive.app.ui.theme.StatusInProgress)
-                }
-            }
+            QuickActionCard(
+                title = "Track Status",
+                icon = Icons.Default.Search,
+                color = com.safelive.app.ui.theme.StatusInProgress,
+                onClick = { navController.navigate(Screen.IncidentList.route) },
+                modifier = Modifier.weight(1f)
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            QuickActionCard(
+                title = "Nearby Incidents",
+                icon = Icons.Default.Map,
+                color = com.safelive.app.ui.theme.StatusPending,
+                onClick = { navController.navigate(Screen.MapView.route) },
+                modifier = Modifier.weight(1f)
+            )
+            QuickActionCard(
+                title = "Emergency Contacts",
+                icon = Icons.Default.Phone,
+                color = com.safelive.app.ui.theme.DangerRed,
+                onClick = { /* TODO: Emergency Contacts */ },
+                modifier = Modifier.weight(1f)
+            )
         }
     }
 }
 
 @Composable
-private fun StatItem(label: String, count: Int, color: Color) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            text = count.toString(),
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            color = color
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+private fun QuickActionCard(title: String, icon: ImageVector, color: Color, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier.clickable { onClick() }.height(100.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(16.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.Start
+        ) {
+            Box(
+                modifier = Modifier.size(36.dp).background(color.copy(alpha = 0.1f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, contentDescription = title, tint = color, modifier = Modifier.size(20.dp))
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
     }
 }
 

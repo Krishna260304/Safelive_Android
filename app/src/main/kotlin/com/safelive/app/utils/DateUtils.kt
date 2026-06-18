@@ -15,6 +15,7 @@ object DateUtils {
     private val DISPLAY_FORMAT = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.US)
     private val DATE_ONLY_FORMAT = SimpleDateFormat("dd MMM yyyy", Locale.US)
     private val TIME_ONLY_FORMAT = SimpleDateFormat("hh:mm a", Locale.US)
+    private val EXACT_FORMAT = SimpleDateFormat("dd/MM/yyyy, h:mm:ss a", Locale.US)
 
     fun parseIso(isoString: String?): Date? {
         if (isoString.isNullOrBlank()) return null
@@ -38,6 +39,11 @@ object DateUtils {
     fun formatTimeOnly(isoString: String?): String {
         val date = parseIso(isoString) ?: return "N/A"
         return TIME_ONLY_FORMAT.format(date)
+    }
+
+    fun formatExact(isoString: String?): String {
+        val date = parseIso(isoString) ?: return "N/A"
+        return EXACT_FORMAT.format(date).replace("AM", "am").replace("PM", "pm")
     }
 
     fun formatTime(isoString: String?): String = formatTimeOnly(isoString)

@@ -23,6 +23,12 @@ class GetIncidentDetailUseCase @Inject constructor(
     suspend operator fun invoke(id: String) = repository.getIncidentById(id)
 }
 
+class GetIncidentLogbookUseCase @Inject constructor(
+    private val repository: IncidentRepository
+) {
+    suspend operator fun invoke(id: String) = repository.getIncidentLogbook(id)
+}
+
 class CreateIncidentUseCase @Inject constructor(
     private val repository: IncidentRepository
 ) {

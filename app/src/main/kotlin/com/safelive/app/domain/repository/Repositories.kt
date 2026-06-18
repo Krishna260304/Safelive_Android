@@ -58,6 +58,7 @@ interface IncidentRepository {
     ): Resource<Incident>
 
     suspend fun updateIncidentStatus(id: String, status: String, note: String?): Resource<Incident>
+    suspend fun getIncidentLogbook(id: String): Resource<List<LogbookEntry>>
     suspend fun getDashboardStats(): Resource<DashboardStats>
     suspend fun getNearbyIncidents(latitude: Double, longitude: Double): Resource<List<Incident>>
     fun getCachedIncidents(): Flow<List<Incident>>
@@ -98,9 +99,22 @@ interface OfficialRepository {
         priority: String? = null
     ): Flow<Resource<List<Ticket>>>
 
+    suspend fun getTicketById(id: String): Resource<Ticket>
+
     suspend fun acceptIncident(id: String): Resource<Ticket>
     suspend fun rejectIncident(id: String, reason: String): Resource<Ticket>
     suspend fun updateStatus(id: String, status: String, note: String?): Resource<Ticket>
+    suspend fun assignWorkers(
+        ticketId: String,
+        workerId: String,
+        assigneeName: String,
+        assigneePhone: String? = null,
+        assigneePhoto: String? = null,
+        notes: String? = null
+    ): Resource<Ticket>
+    suspend fun assignSupervisor(ticketId: String, supervisorId: String, notes: String? = null): Resource<Ticket>
+    suspend fun updateProgress(ticketId: String, updateText: String, editLastUpdate: Boolean? = null): Resource<Ticket>
+    suspend fun getTicketLogbook(ticketId: String): Resource<List<LogbookEntry>>
     fun getIncidentQueue(): Flow<Resource<List<Ticket>>>
     suspend fun uploadResolution(id: String, note: String, imagePaths: List<String>): Resource<Ticket>
 }

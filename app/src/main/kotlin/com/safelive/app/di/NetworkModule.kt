@@ -1,3 +1,4 @@
+@file:Suppress("DEPRECATION")
 package com.safelive.app.di
 
 import com.google.gson.Gson

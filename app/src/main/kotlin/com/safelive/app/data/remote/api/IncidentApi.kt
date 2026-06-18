@@ -18,6 +18,9 @@ interface IncidentApi {
     @GET("issues/{id}")
     suspend fun getIncidentById(@Path("id") id: String): ApiResponse<IncidentDto>
 
+    @GET("issues/{id}/logbook")
+    suspend fun getIncidentLogbook(@Path("id") id: String): ApiResponse<List<LogbookEntryDto>>
+
     @POST("issues")
     suspend fun createIncident(@Body request: IncidentCreateRequest): ApiResponse<IncidentDto>
 

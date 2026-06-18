@@ -1,5 +1,8 @@
 package com.safelive.app.data.repository
 
+import android.content.Context
+import android.net.Uri
+import android.util.Base64
 import com.google.gson.Gson
 import com.safelive.app.data.local.dao.DraftIncidentDao
 import com.safelive.app.data.local.dao.IncidentDao
@@ -11,12 +14,9 @@ import com.safelive.app.domain.model.*
 import com.safelive.app.domain.repository.IncidentRepository
 import com.safelive.app.utils.Resource
 import kotlinx.coroutines.flow.*
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.MultipartBody
-import okhttp3.RequestBody.Companion.asRequestBody
-import okhttp3.RequestBody.Companion.toRequestBody
 import timber.log.Timber
 import java.io.File
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -25,7 +25,8 @@ class IncidentRepositoryImpl @Inject constructor(
     private val incidentApi: IncidentApi,
     private val incidentDao: IncidentDao,
     private val draftIncidentDao: DraftIncidentDao,
-    private val gson: Gson
+    private val gson: Gson,
+    @ApplicationContext private val context: Context
 ) : IncidentRepository {
 
     override fun getIncidents(
@@ -65,21 +66,48 @@ class IncidentRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun getIncidentLogbook(id: String): Resource<List<LogbookEntry>> {
+        return try {
+            val response = incidentApi.getIncidentLogbook(id)
+            if (response.success) {
+                Resource.Success(response.data.orEmpty().map { it.toDomain() })
+            } else {
+                Resource.Error(response.error ?: "Failed to load incident logbook")
+            }
+        } catch (e: Exception) {
+            Resource.Error(e.localizedMessage ?: "Unknown error")
+        }
+    }
+
     override suspend fun createIncident(
         title: String, description: String, category: String, priority: String,
         latitude: Double?, longitude: Double?, location: String?, pincode: String?, imagePaths: List<String>
     ): Resource<Incident> {
         return try {
+            val encodedImages = imagePaths.mapNotNull { encodeImageToBase64(it) }
+            if (imagePaths.isNotEmpty() && encodedImages.isEmpty()) {
+                return Resource.Error("Failed to process incident images")
+            }
+
+            val resolvedLocation = buildString {
+                append(location.orEmpty())
+                if (!pincode.isNullOrBlank()) {
+                    if (isNotEmpty()) append(", ")
+                    append("Pincode: ")
+                    append(pincode)
+                }
+            }.ifBlank { location.orEmpty() }
+
             val request = IncidentCreateRequest(
                 title = title,
                 description = description,
                 category = category,
                 priority = priority,
-                location = location ?: "",
+                location = resolvedLocation,
                 latitude = latitude ?: 0.0,
                 longitude = longitude ?: 0.0,
-                pincode = pincode,
-                images = imagePaths.takeIf { it.isNotEmpty() }
+                pincode = null,
+                images = encodedImages.takeIf { it.isNotEmpty() }
             )
 
             val response = incidentApi.createIncident(request)
@@ -151,6 +179,39 @@ class IncidentRepositoryImpl @Inject constructor(
     }
 
     override suspend fun deleteDraft(id: Int) = draftIncidentDao.deleteDraftById(id)
+
+    private fun encodeImageToBase64(imagePath: String): String? {
+        return try {
+            val bytes = when {
+                imagePath.startsWith("content://") -> {
+                    val uri = Uri.parse(imagePath)
+                    context.contentResolver.openInputStream(uri)?.use { inputStream -> inputStream.readBytes() }
+                }
+                imagePath.startsWith("file://") -> {
+                    val uri = Uri.parse(imagePath)
+                    uri.path?.let { path ->
+                        val file = File(path)
+                        if (file.exists()) file.readBytes() else null
+                    }
+                }
+                else -> {
+                    val file = File(imagePath)
+                    if (file.exists()) {
+                        file.readBytes()
+                    } else {
+                        context.contentResolver.openInputStream(Uri.parse(imagePath))?.use { inputStream ->
+                            inputStream.readBytes()
+                        }
+                    }
+                }
+            }
+
+            bytes?.let { Base64.encodeToString(it, Base64.NO_WRAP) }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to encode incident image: %s", imagePath)
+            null
+        }
+    }
 
     private fun Incident.toEntity() = IncidentEntity(
         id = id,
@@ -226,7 +287,9 @@ class IncidentRepositoryImpl @Inject constructor(
             reporterDeleteLocked = reporterDeleteLocked,
             createdAt = createdAt,
             updatedAt = updatedAt,
-            hasMessages = hasMessages
+            hasMessages = hasMessages,
+            progressPercent = null,
+            workerIds = null
         )
     }
 
@@ -248,4 +311,5 @@ class IncidentRepositoryImpl @Inject constructor(
             createdAt = createdAt, updatedAt = updatedAt
         )
     }
+
 }

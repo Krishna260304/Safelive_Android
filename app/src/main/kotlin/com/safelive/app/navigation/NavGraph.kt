@@ -21,6 +21,7 @@ import com.safelive.app.presentation.maps.MapScreen
 import com.safelive.app.presentation.notifications.NotificationScreen
 import com.safelive.app.presentation.official.OfficialDashboardScreen
 import com.safelive.app.presentation.official.IncidentQueueScreen
+import com.safelive.app.presentation.official.TicketDetailScreen
 import com.safelive.app.presentation.official.TeamManagementScreen
 import com.safelive.app.presentation.official.OfficialAlertsScreen
 import com.safelive.app.presentation.official.AssignedIncidentsScreen
@@ -163,6 +164,14 @@ fun SafeLiveNavGraph(
 
         composable(Screen.IncidentQueue.route) {
             IncidentQueueScreen(navController = navController)
+        }
+
+        composable(
+            route = Screen.TicketDetail.route,
+            arguments = listOf(navArgument("ticketId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val id = backStackEntry.arguments?.getString("ticketId") ?: ""
+            TicketDetailScreen(navController = navController, ticketId = id)
         }
 
         composable(Screen.TeamManagement.route) {

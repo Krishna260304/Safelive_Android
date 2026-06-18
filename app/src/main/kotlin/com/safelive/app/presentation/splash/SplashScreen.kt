@@ -89,10 +89,12 @@ fun SplashScreen(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "🛡️",
-                    fontSize = 60.sp,
-                    modifier = Modifier.scale(logoScale.value)
+                androidx.compose.foundation.Image(
+                    painter = androidx.compose.ui.res.painterResource(id = com.safelive.app.R.drawable.safelive_logo),
+                    contentDescription = "SafeLive Logo",
+                    modifier = Modifier
+                        .size(80.dp)
+                        .scale(logoScale.value)
                 )
             }
 

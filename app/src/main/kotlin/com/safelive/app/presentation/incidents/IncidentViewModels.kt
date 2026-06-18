@@ -2,6 +2,7 @@ package com.safelive.app.presentation.incidents
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.safelive.app.domain.model.LogbookEntry
 import com.safelive.app.data.websocket.WebSocketManager
 import com.safelive.app.data.websocket.SocketEvent
 import com.safelive.app.domain.model.DraftIncident
@@ -114,15 +115,20 @@ class IncidentListViewModel @Inject constructor(
 
 data class IncidentDetailUiState(
     val incident: Incident? = null,
+    val logbook: List<LogbookEntry> = emptyList(),
     val isLoading: Boolean = false,
-    val error: String? = null
+    val isLoadingLogbook: Boolean = false,
+    val error: String? = null,
+    val officialRole: String = ""
 )
 
 @HiltViewModel
 class IncidentDetailViewModel @Inject constructor(
     private val getIncidentDetailUseCase: GetIncidentDetailUseCase,
+    private val getIncidentLogbookUseCase: GetIncidentLogbookUseCase,
     private val updateIncidentStatusUseCase: UpdateIncidentStatusUseCase,
-    private val webSocketManager: WebSocketManager
+    private val webSocketManager: WebSocketManager,
+    private val authRepository: com.safelive.app.domain.repository.AuthRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(IncidentDetailUiState())
@@ -134,6 +140,11 @@ class IncidentDetailViewModel @Inject constructor(
 
     init {
         observeWebSocketForIncident()
+        viewModelScope.launch {
+            authRepository.getOfficialRole().collect { role ->
+                _uiState.update { it.copy(officialRole = role ?: "") }
+            }
+        }
     }
 
     fun loadIncident(id: String) {
@@ -142,8 +153,26 @@ class IncidentDetailViewModel @Inject constructor(
         loadJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             when (val result = getIncidentDetailUseCase(id)) {
-                is Resource.Success -> _uiState.update { it.copy(incident = result.data, isLoading = false, error = null) }
+                is Resource.Success -> {
+                    _uiState.update { it.copy(incident = result.data, isLoading = false, error = null) }
+                    loadLogbook(id)
+                }
                 is Resource.Error -> _uiState.update { it.copy(error = result.message, isLoading = false) }
+                Resource.Loading -> Unit
+            }
+        }
+    }
+
+    fun refreshLogbook() {
+        if (currentIncidentId.isNotBlank()) loadLogbook(currentIncidentId)
+    }
+
+    private fun loadLogbook(id: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingLogbook = true) }
+            when (val result = getIncidentLogbookUseCase(id)) {
+                is Resource.Success -> _uiState.update { it.copy(logbook = result.data, isLoadingLogbook = false) }
+                is Resource.Error -> _uiState.update { it.copy(error = result.message, isLoadingLogbook = false) }
                 Resource.Loading -> Unit
             }
         }

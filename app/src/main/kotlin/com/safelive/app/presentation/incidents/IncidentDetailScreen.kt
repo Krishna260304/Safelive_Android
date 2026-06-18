@@ -23,11 +23,16 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.window.Dialog
+import com.safelive.app.domain.model.LogbookEntry
 import com.safelive.app.domain.model.Incident
 import com.safelive.app.navigation.Screen
 import com.safelive.app.presentation.dashboard.StatusChip
 import com.safelive.app.ui.theme.*
 import com.safelive.app.utils.DateUtils
+import com.safelive.app.utils.capitalizeWords
+import androidx.compose.material.icons.automirrored.filled.Assignment
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,9 +42,19 @@ fun IncidentDetailScreen(
     viewModel: IncidentDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var showLogbook by remember { mutableStateOf(false) }
 
     LaunchedEffect(incidentId) {
         viewModel.loadIncident(incidentId)
+    }
+
+    if (showLogbook && uiState.incident != null) {
+        IncidentLogbookDialog(
+            title = uiState.incident!!.title,
+            location = uiState.incident!!.location,
+            entries = uiState.logbook,
+            onDismiss = { showLogbook = false }
+        )
     }
 
     Scaffold(
@@ -99,6 +114,7 @@ fun IncidentDetailScreen(
             uiState.incident != null -> {
                 IncidentDetailContent(
                     incident = uiState.incident!!,
+                    onLogbookClick = { showLogbook = true },
                     modifier = Modifier.padding(paddingValues)
                 )
             }
@@ -107,7 +123,7 @@ fun IncidentDetailScreen(
 }
 
 @Composable
-private fun IncidentDetailContent(incident: Incident, modifier: Modifier = Modifier) {
+private fun IncidentDetailContent(incident: Incident, onLogbookClick: () -> Unit, modifier: Modifier = Modifier) {
     val images = incident.images.orEmpty()
     val priority = incident.priority ?: "Medium"
 
@@ -155,6 +171,17 @@ private fun IncidentDetailContent(incident: Incident, modifier: Modifier = Modif
                     if (incident.updatedAt != incident.createdAt) {
                         HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant)
                         PropertyRow(icon = Icons.Default.Update, label = "Last Updated", value = DateUtils.getTimeAgo(incident.updatedAt))
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedButton(
+                        onClick = onLogbookClick,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.Assignment, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("LogBook")
                     }
                 }
             }
@@ -301,4 +328,153 @@ private fun String.toPriorityColor() = when (this.lowercase()) {
     "high" -> PriorityHigh
     "critical" -> PriorityCritical
     else -> PriorityMedium
+}
+
+@Composable
+private fun IncidentLogbookDialog(
+    title: String,
+    location: String,
+    entries: List<LogbookEntry>,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 620.dp),
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFF4F7FB))
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Ticket LogBook", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text("Activity LogBook for $title..", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(location, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = null)
+                    }
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("Total updates: ${entries.size}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 420.dp)
+                        .border(1.dp, Color(0xFFD0D7E2), RoundedCornerShape(14.dp))
+                        .background(Color.White, RoundedCornerShape(14.dp))
+                ) {
+                    if (entries.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(20.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "No logbook entries yet.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentPadding = PaddingValues(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            items(entries, key = { it.id ?: "${it.createdAt}-${it.action}" }) { entry ->
+                                LogbookEntryCard(entry = entry)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LogbookEntryCard(entry: LogbookEntry) {
+    Card(
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFFFF)),
+        border = BorderStroke(1.dp, Color(0xFFD0D7E2))
+    ) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = entry.toLogbookTitle(),
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = entry.toLogbookDetails(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = entry.createdAt.formatDatePart(),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun String?.formatDatePart(): String {
+    if (this.isNullOrBlank()) return "N/A"
+    return DateUtils.formatDateOnly(this)
+}
+
+private fun LogbookEntry.toLogbookTitle(): String {
+    val actionText = action?.takeIf { it.isNotBlank() }?.capitalizeWords()
+    val statusText = listOfNotNull(
+        statusFrom?.takeIf { it.isNotBlank() }?.let { "From ${it.capitalizeWords()}" },
+        statusTo?.takeIf { it.isNotBlank() }?.let { "to ${it.capitalizeWords()}" }
+    ).joinToString(" ")
+    return when {
+        actionText != null && statusText.isNotBlank() -> "$actionText | $statusText"
+        actionText != null -> actionText
+        statusText.isNotBlank() -> statusText
+        else -> "Logbook Update"
+    }
+}
+
+private fun LogbookEntry.toLogbookDetails(): String {
+    val fromTo = listOfNotNull(
+        statusFrom?.takeIf { it.isNotBlank() }?.let { "From status: $it" },
+        statusTo?.takeIf { it.isNotBlank() }?.let { "To status: $it" }
+    )
+    val actionText = action?.takeIf { it.isNotBlank() }?.capitalizeWords()
+    val actorText = actorName?.takeIf { it.isNotBlank() }?.let {
+        "$it${actorRole?.takeIf { role -> role.isNotBlank() }?.let { role -> " ($role)" }.orEmpty()}"
+    }
+    return buildString {
+        if (fromTo.isNotEmpty()) append(fromTo.joinToString(", "))
+        if (actionText != null) {
+            if (isNotEmpty()) append(". ")
+            append(actionText)
+        }
+        if (message != null && message.isNotBlank()) {
+            if (isNotEmpty()) append(". ")
+            append(message)
+        }
+        if (actorText != null) {
+            if (isNotEmpty()) append(". ")
+            append("By: $actorText")
+        }
+    }
 }

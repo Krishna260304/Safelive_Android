@@ -1,3 +1,4 @@
+@file:Suppress("DEPRECATION")
 package com.safelive.app.presentation.incidents
 import androidx.compose.material3.MaterialTheme
 

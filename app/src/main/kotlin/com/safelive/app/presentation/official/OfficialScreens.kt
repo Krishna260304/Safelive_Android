@@ -109,18 +109,26 @@ fun OfficialDashboardScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text(
-                            "${uiState.displayRole} Portal", 
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface, 
-                            fontWeight = FontWeight.Bold
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.foundation.Image(
+                            painter = androidx.compose.ui.res.painterResource(id = com.safelive.app.R.drawable.safelive_logo),
+                            contentDescription = "SafeLive Logo",
+                            modifier = Modifier.size(32.dp)
                         )
-                        Text(
-                            "Welcome, ${uiState.officialName}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                "${uiState.displayRole} Portal", 
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface, 
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                "Welcome, ${uiState.officialName}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 },
                 navigationIcon = {
@@ -438,7 +446,7 @@ fun IncidentQueueScreen(
                 items(uiState.incidents, key = { it.id }) { incident ->
                     OfficialTicketCard(
                         ticket = incident,
-                        onClick = { navController.navigate(Screen.IncidentDetail.createRoute(incident.id)) }
+                        onClick = { navController.navigate(Screen.TicketDetail.createRoute(incident.id)) }
                     )
                 }
             }

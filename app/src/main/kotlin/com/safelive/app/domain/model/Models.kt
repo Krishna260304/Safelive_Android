@@ -56,7 +56,9 @@ data class Incident(
     val reporterDeleteLocked: Boolean?,
     val createdAt: String,
     val updatedAt: String?,
-    val hasMessages: Boolean?
+    val hasMessages: Boolean?,
+    val progressPercent: Int?,
+    val workerIds: List<String>?
 )
 
 data class Ticket(
@@ -153,6 +155,17 @@ data class Notification(
     val referenceId: String?,
     val isRead: Boolean,
     val createdAt: String?
+)
+
+data class LogbookEntry(
+    val id: String? = null,
+    val action: String? = null,
+    val message: String? = null,
+    val statusFrom: String? = null,
+    val statusTo: String? = null,
+    val actorName: String? = null,
+    val actorRole: String? = null,
+    val createdAt: String? = null
 )
 
 data class DashboardStats(

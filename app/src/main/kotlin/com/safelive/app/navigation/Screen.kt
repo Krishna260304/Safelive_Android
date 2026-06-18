@@ -18,6 +18,9 @@ sealed class Screen(val route: String) {
     data object IncidentDetail : Screen("incident_detail/{incidentId}") {
         fun createRoute(id: String) = "incident_detail/$id"
     }
+    data object TicketDetail : Screen("ticket_detail/{ticketId}") {
+        fun createRoute(id: String) = "ticket_detail/$id"
+    }
     data object CreateIncident : Screen("create_incident")
     data object MapView : Screen("map_view")
     data object Chat : Screen("chat/{chatId}") {

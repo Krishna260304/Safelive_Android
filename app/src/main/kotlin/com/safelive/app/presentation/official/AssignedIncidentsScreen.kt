@@ -78,7 +78,7 @@ fun AssignedIncidentsScreen(
                 items(uiState.incidents, key = { it.id }) { ticket ->
                     OfficialTicketCard(
                         ticket = ticket,
-                        onClick = { navController.navigate(Screen.IncidentDetail.createRoute(ticket.id)) }
+                        onClick = { navController.navigate(Screen.TicketDetail.createRoute(ticket.id)) }
                     )
                 }
             }
