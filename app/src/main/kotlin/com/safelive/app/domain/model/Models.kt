@@ -12,7 +12,8 @@ data class User(
     val pincode: String?,
     val createdAt: String?,
     val isVerified: Boolean,
-    val profilePictureUrl: String? = null
+    val profilePictureUrl: String? = null,
+    val twoFactorEnabled: Boolean = false
 ) {
     val isCitizen: Boolean get() = userType.lowercase() == "local"
     val isOfficial: Boolean get() = userType.lowercase() == "official"

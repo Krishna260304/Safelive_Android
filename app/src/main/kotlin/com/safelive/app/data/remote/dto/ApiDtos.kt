@@ -20,6 +20,11 @@ data class RegisterResponse(
     val user: UserDto
 )
 
+data class OtpChallengeDto(
+    val challengeId: String,
+    val channels: List<String>? = null
+)
+
 data class RefreshTokenRequest(
     val refreshToken: String
 )
@@ -39,7 +44,8 @@ data class UserDto(
     val pincode: String?,
     val createdAt: String?,
     val isVerified: Boolean,
-    val profilePictureUrl: String? = null
+    val profilePictureUrl: String? = null,
+    val twoFactorEnabled: Boolean = false
 ) {
     fun toDomain(): User = User(
         id = id,
@@ -53,7 +59,8 @@ data class UserDto(
         pincode = pincode,
         createdAt = createdAt,
         isVerified = isVerified,
-        profilePictureUrl = profilePictureUrl
+        profilePictureUrl = profilePictureUrl,
+        twoFactorEnabled = twoFactorEnabled
     )
 }
 

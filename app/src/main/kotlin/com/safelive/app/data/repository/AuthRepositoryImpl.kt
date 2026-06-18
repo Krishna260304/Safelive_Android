@@ -138,13 +138,56 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun toggle2FA(enabled: Boolean): Resource<String> {
+    override suspend fun requestEnable2FAOtp(): Resource<String> {
         return try {
-            val response = authApi.toggle2FA(mapOf("enabled" to enabled))
-            if (response.success) {
-                Resource.Success(if (enabled) "2FA enabled" else "2FA disabled")
+            val response = authApi.requestEnable2faOtp()
+            if (response.success && !response.data?.challengeId.isNullOrBlank()) {
+                Resource.Success(response.data!!.challengeId)
             } else {
-                Resource.Error(response.error ?: "Failed to toggle 2FA")
+                Resource.Error(response.error ?: "Failed to request OTP")
+            }
+        } catch (e: Exception) {
+            Resource.Error(e.localizedMessage ?: "Unknown error occurred")
+        }
+    }
+
+    override suspend fun confirmEnable2FA(challengeId: String, otp: String): Resource<User> {
+        return try {
+            val response = authApi.confirmEnable2fa(mapOf("challengeId" to challengeId, "otp" to otp))
+            if (response.success && response.data != null) {
+                val user = response.data.toDomain()
+                dataStore.saveUserProfile(user)
+                Resource.Success(user)
+            } else {
+                Resource.Error(response.error ?: "Failed to enable 2FA")
+            }
+        } catch (e: Exception) {
+            Resource.Error(e.localizedMessage ?: "Unknown error occurred")
+        }
+    }
+
+    override suspend fun requestDisable2FAOtp(): Resource<String> {
+        return try {
+            val response = authApi.requestDisable2faOtp()
+            if (response.success && !response.data?.challengeId.isNullOrBlank()) {
+                Resource.Success(response.data!!.challengeId)
+            } else {
+                Resource.Error(response.error ?: "Failed to request OTP")
+            }
+        } catch (e: Exception) {
+            Resource.Error(e.localizedMessage ?: "Unknown error occurred")
+        }
+    }
+
+    override suspend fun confirmDisable2FA(challengeId: String, otp: String): Resource<User> {
+        return try {
+            val response = authApi.confirmDisable2fa(mapOf("challengeId" to challengeId, "otp" to otp))
+            if (response.success && response.data != null) {
+                val user = response.data.toDomain()
+                dataStore.saveUserProfile(user)
+                Resource.Success(user)
+            } else {
+                Resource.Error(response.error ?: "Failed to disable 2FA")
             }
         } catch (e: Exception) {
             Resource.Error(e.localizedMessage ?: "Unknown error occurred")

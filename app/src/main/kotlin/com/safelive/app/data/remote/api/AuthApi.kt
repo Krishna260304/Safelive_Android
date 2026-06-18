@@ -28,6 +28,15 @@ interface AuthApi {
     @POST("auth/password/change/confirm")
     suspend fun confirmChangePassword(@Body request: Map<String, String>): ApiResponse<Any>
 
-    @POST("auth/toggle-2fa")
-    suspend fun toggle2FA(@Body request: Map<String, Boolean>): ApiResponse<Any>
+    @POST("auth/2fa/enable/request-otp")
+    suspend fun requestEnable2faOtp(): ApiResponse<OtpChallengeDto>
+
+    @POST("auth/2fa/enable/confirm")
+    suspend fun confirmEnable2fa(@Body request: Map<String, String>): ApiResponse<UserDto>
+
+    @POST("auth/2fa/disable/request-otp")
+    suspend fun requestDisable2faOtp(): ApiResponse<OtpChallengeDto>
+
+    @POST("auth/2fa/disable/confirm")
+    suspend fun confirmDisable2fa(@Body request: Map<String, String>): ApiResponse<UserDto>
 }

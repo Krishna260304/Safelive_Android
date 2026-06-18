@@ -28,6 +28,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.safelive.app.domain.repository.AuthRepository
+import com.safelive.app.domain.repository.ProfileRepository
 import com.safelive.app.utils.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -45,6 +46,11 @@ data class ChangePasswordUiState(
     val challengeId: String? = null,
     val isOtpSent: Boolean = false,
     val twoFactorEnabled: Boolean = false,
+    val twoFactorChallengeId: String? = null,
+    val twoFactorOtp: String = "",
+    val pendingTwoFactorEnable: Boolean? = null,
+    val isTwoFactorOtpSent: Boolean = false,
+    val isTwoFactorLoading: Boolean = false,
     val isLoading: Boolean = false,
     val showCurrentPassword: Boolean = false,
     val showNewPassword: Boolean = false,
@@ -55,11 +61,16 @@ data class ChangePasswordUiState(
 
 @HiltViewModel
 class ChangePasswordViewModel @Inject constructor(
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val profileRepository: ProfileRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChangePasswordUiState())
     val uiState: StateFlow<ChangePasswordUiState> = _uiState.asStateFlow()
+
+    init {
+        loadProfileState()
+    }
 
     fun onCurrentPasswordChange(password: String) = _uiState.update { it.copy(currentPassword = password) }
     fun onNewPasswordChange(password: String) = _uiState.update { it.copy(newPassword = password) }
@@ -68,6 +79,17 @@ class ChangePasswordViewModel @Inject constructor(
     fun toggleShowNewPassword() = _uiState.update { it.copy(showNewPassword = !it.showNewPassword) }
     fun toggleShowConfirmPassword() = _uiState.update { it.copy(showConfirmPassword = !it.showConfirmPassword) }
     fun onOtpChange(otp: String) = _uiState.update { it.copy(otp = otp) }
+    fun onTwoFactorOtpChange(otp: String) = _uiState.update { it.copy(twoFactorOtp = otp, error = null) }
+
+    private fun loadProfileState() {
+        viewModelScope.launch {
+            when (val result = profileRepository.getProfile()) {
+                is Resource.Success -> _uiState.update { it.copy(twoFactorEnabled = result.data.twoFactorEnabled) }
+                is Resource.Error -> Unit
+                Resource.Loading -> Unit
+            }
+        }
+    }
 
     fun requestOtp() {
         if (_uiState.value.newPassword != _uiState.value.confirmPassword) {
@@ -115,14 +137,80 @@ class ChangePasswordViewModel @Inject constructor(
         }
     }
 
-    fun toggle2FA(enabled: Boolean) {
+    fun requestTwoFactorChange(enable: Boolean) {
         viewModelScope.launch {
-            _uiState.update { it.copy(twoFactorEnabled = enabled) }
-            val result = authRepository.toggle2FA(enabled)
-            if (result is Resource.Error) {
-                // Revert if failed
-                _uiState.update { it.copy(twoFactorEnabled = !enabled, error = result.message) }
+            _uiState.update { it.copy(isTwoFactorLoading = true, error = null, successMessage = null) }
+            val result = if (enable) {
+                authRepository.requestEnable2FAOtp()
+            } else {
+                authRepository.requestDisable2FAOtp()
             }
+            when (result) {
+                is Resource.Success -> _uiState.update {
+                    it.copy(
+                        isTwoFactorLoading = false,
+                        twoFactorChallengeId = result.data,
+                        twoFactorOtp = "",
+                        pendingTwoFactorEnable = enable,
+                        isTwoFactorOtpSent = true,
+                        successMessage = "OTP sent to your registered email/phone"
+                    )
+                }
+                is Resource.Error -> _uiState.update { it.copy(isTwoFactorLoading = false, error = result.message) }
+                Resource.Loading -> Unit
+            }
+        }
+    }
+
+    fun confirmTwoFactorChange() {
+        val challengeId = _uiState.value.twoFactorChallengeId ?: run {
+            _uiState.update { it.copy(error = "Please request OTP again") }
+            return
+        }
+        val otp = _uiState.value.twoFactorOtp.trim()
+        val enable = _uiState.value.pendingTwoFactorEnable ?: run {
+            _uiState.update { it.copy(error = "Please request OTP again") }
+            return
+        }
+        if (otp.isBlank()) {
+            _uiState.update { it.copy(error = "Please enter OTP") }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isTwoFactorLoading = true, error = null, successMessage = null) }
+            val result = if (enable) {
+                authRepository.confirmEnable2FA(challengeId, otp)
+            } else {
+                authRepository.confirmDisable2FA(challengeId, otp)
+            }
+            when (result) {
+                is Resource.Success -> _uiState.update {
+                    it.copy(
+                        isTwoFactorLoading = false,
+                        twoFactorEnabled = result.data.twoFactorEnabled,
+                        twoFactorChallengeId = null,
+                        twoFactorOtp = "",
+                        pendingTwoFactorEnable = null,
+                        isTwoFactorOtpSent = false,
+                        successMessage = "Two-factor authentication ${if (result.data.twoFactorEnabled) "enabled" else "disabled"}."
+                    )
+                }
+                is Resource.Error -> _uiState.update { it.copy(isTwoFactorLoading = false, error = result.message) }
+                Resource.Loading -> Unit
+            }
+        }
+    }
+
+    fun clearTwoFactorChallenge() {
+        _uiState.update {
+            it.copy(
+                twoFactorChallengeId = null,
+                twoFactorOtp = "",
+                pendingTwoFactorEnable = null,
+                isTwoFactorOtpSent = false,
+                isTwoFactorLoading = false
+            )
         }
     }
 }
@@ -293,16 +381,15 @@ fun ChangePasswordScreen(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
-                    Row(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
-                                text = "Enable 2FA",
+                                text = if (uiState.twoFactorEnabled) "Two-factor authentication is on" else "Two-factor authentication is off",
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontWeight = FontWeight.Medium
                             )
@@ -312,11 +399,72 @@ fun ChangePasswordScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        Switch(
-                            checked = uiState.twoFactorEnabled,
-                            onCheckedChange = viewModel::toggle2FA,
-                            colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary)
-                        )
+
+                        if (uiState.twoFactorChallengeId == null) {
+                            Button(
+                                onClick = { viewModel.requestTwoFactorChange(!uiState.twoFactorEnabled) },
+                                enabled = !uiState.isTwoFactorLoading,
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                            ) {
+                                if (uiState.isTwoFactorLoading) {
+                                    CircularProgressIndicator(
+                                        color = Color.White,
+                                        strokeWidth = 2.dp,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                } else {
+                                    Text(
+                                        text = if (uiState.twoFactorEnabled) "Disable 2FA" else "Enable 2FA",
+                                        color = Color.White
+                                    )
+                                }
+                            }
+                        } else {
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text(
+                                    text = "OTP sent to your registered email/phone.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                OutlinedTextField(
+                                    value = uiState.twoFactorOtp,
+                                    onValueChange = viewModel::onTwoFactorOtpChange,
+                                    placeholder = { Text("Enter OTP", style = MaterialTheme.typography.bodySmall, color = Color.Gray) },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    OutlinedButton(
+                                        onClick = viewModel::clearTwoFactorChallenge,
+                                        enabled = !uiState.isTwoFactorLoading,
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text("Cancel")
+                                    }
+                                    Button(
+                                        onClick = viewModel::confirmTwoFactorChange,
+                                        enabled = !uiState.isTwoFactorLoading,
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(8.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                                    ) {
+                                        if (uiState.isTwoFactorLoading) {
+                                            CircularProgressIndicator(
+                                                color = Color.White,
+                                                strokeWidth = 2.dp,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        } else {
+                                            Text("Confirm OTP", color = Color.White)
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

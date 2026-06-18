@@ -37,6 +37,7 @@ class UserPreferencesDataStore @Inject constructor(
         val USER_WORKER_SPECIALIZATION = stringPreferencesKey("user_worker_specialization")
         val USER_CREATED_AT = stringPreferencesKey("user_created_at")
         val USER_IS_VERIFIED = booleanPreferencesKey("user_is_verified")
+        val USER_TWO_FACTOR_ENABLED = booleanPreferencesKey("user_two_factor_enabled")
         val IS_LOGGED_IN = booleanPreferencesKey(Constants.PREF_IS_LOGGED_IN)
         val PUSH_NOTIFICATIONS = booleanPreferencesKey("push_notifications")
         val EMAIL_ALERTS = booleanPreferencesKey("email_alerts")
@@ -128,7 +129,8 @@ class UserPreferencesDataStore @Inject constructor(
                     pincode = prefs[Keys.USER_PINCODE],
                     createdAt = prefs[Keys.USER_CREATED_AT],
                     isVerified = prefs[Keys.USER_IS_VERIFIED] ?: false,
-                    profilePictureUrl = prefs[Keys.USER_PROFILE_PICTURE_URL]
+                    profilePictureUrl = prefs[Keys.USER_PROFILE_PICTURE_URL],
+                    twoFactorEnabled = prefs[Keys.USER_TWO_FACTOR_ENABLED] ?: false
                 )
             }
         }
@@ -192,6 +194,7 @@ class UserPreferencesDataStore @Inject constructor(
             user.pincode?.trim()?.takeIf { it.isNotBlank() }?.let { prefs[Keys.USER_PINCODE] = it }
             user.createdAt?.trim()?.takeIf { it.isNotBlank() }?.let { prefs[Keys.USER_CREATED_AT] = it }
             user.profilePictureUrl?.trim()?.takeIf { it.isNotBlank() }?.let { prefs[Keys.USER_PROFILE_PICTURE_URL] = it }
+            prefs[Keys.USER_TWO_FACTOR_ENABLED] = user.twoFactorEnabled
         }
     }
 
