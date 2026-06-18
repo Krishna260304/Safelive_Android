@@ -1,6 +1,7 @@
 package com.safelive.app.presentation.official
 import androidx.compose.material3.MaterialTheme
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -353,8 +354,19 @@ fun TeamManagementScreen(
             // ── Create Official Account Card ──
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.96f)),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.9f))
             ) {
+                val fieldColors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.secondary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.85f),
+                    focusedLabelColor = MaterialTheme.colorScheme.secondary,
+                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    cursorColor = MaterialTheme.colorScheme.secondary
+                )
                 Column(
                     modifier = Modifier.padding(20.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -388,7 +400,8 @@ fun TeamManagementScreen(
                                 placeholder = { Text("Enter full name", style = MaterialTheme.typography.bodySmall, color = Color.Gray) },
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(8.dp)
+                                shape = RoundedCornerShape(8.dp),
+                                colors = fieldColors
                             )
                         }
                         Column(modifier = Modifier.weight(1f)) {
@@ -401,7 +414,8 @@ fun TeamManagementScreen(
                                 singleLine = true,
                                 keyboardOptions = KO(keyboardType = KeyboardType.Email),
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(8.dp)
+                                shape = RoundedCornerShape(8.dp),
+                                colors = fieldColors
                             )
                         }
                     }
@@ -418,7 +432,8 @@ fun TeamManagementScreen(
                                 singleLine = true,
                                 keyboardOptions = KO(keyboardType = KeyboardType.Phone),
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(8.dp)
+                                shape = RoundedCornerShape(8.dp),
+                                colors = fieldColors
                             )
                         }
                         Column(modifier = Modifier.weight(1f)) {
@@ -436,7 +451,8 @@ fun TeamManagementScreen(
                                     }
                                 },
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(8.dp)
+                                shape = RoundedCornerShape(8.dp),
+                                colors = fieldColors
                             )
                         }
                     }
@@ -452,7 +468,8 @@ fun TeamManagementScreen(
                             singleLine = true,
                             keyboardOptions = KO(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth(0.5f),
-                            shape = RoundedCornerShape(8.dp)
+                            shape = RoundedCornerShape(8.dp),
+                            colors = fieldColors
                         )
                         if (uiState.isCheckingPincode) {
                             Spacer(modifier = Modifier.height(4.dp))
@@ -482,7 +499,8 @@ fun TeamManagementScreen(
                             minLines = 2,
                             maxLines = 3,
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(8.dp)
+                            shape = RoundedCornerShape(8.dp),
+                            colors = fieldColors
                         )
                     }
 
@@ -535,7 +553,11 @@ fun TeamManagementScreen(
             }
 
             // ── Added Supervisors / Field Inspectors ──
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.96f))
+            ) {
                 Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Added Supervisors / Field Inspectors", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
 
@@ -553,7 +575,7 @@ fun TeamManagementScreen(
                     } else {
                         uiState.teamMembers.forEach { member ->
                             TeamMemberRow(member)
-                            HorizontalDivider()
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.75f))
                         }
                     }
                 }
@@ -565,37 +587,44 @@ fun TeamManagementScreen(
 
 @Composable
 private fun TeamMemberRow(user: UserDto) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.9f))
     ) {
-        Box(
-            modifier = Modifier.size(40.dp).background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f), CircleShape),
-            contentAlignment = Alignment.Center
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = (user.fullName ?: "?").take(1).uppercase(),
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.secondary,
-                fontSize = 16.sp
-            )
-        }
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(user.fullName ?: "Unknown", fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyMedium)
-            Text(user.email, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-        }
-        val role = user.officialRole ?: user.userType ?: "official"
-        Surface(
-            color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
-            shape = RoundedCornerShape(100.dp)
-        ) {
-            Text(
-                text = role.replaceFirstChar { it.uppercase() },
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-            )
+            Box(
+                modifier = Modifier.size(40.dp).background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = (user.fullName ?: "?").take(1).uppercase(),
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.secondary,
+                    fontSize = 16.sp
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(user.fullName ?: "Unknown", fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyMedium)
+                Text(user.email, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            val role = user.officialRole ?: user.userType ?: "official"
+            Surface(
+                color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
+                shape = RoundedCornerShape(100.dp)
+            ) {
+                Text(
+                    text = role.replaceFirstChar { it.uppercase() },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                )
+            }
         }
     }
 }

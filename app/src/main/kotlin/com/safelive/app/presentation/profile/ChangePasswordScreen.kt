@@ -1,6 +1,7 @@
 package com.safelive.app.presentation.profile
 import androidx.compose.material3.MaterialTheme
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -40,6 +41,9 @@ data class ChangePasswordUiState(
     val currentPassword: String = "",
     val newPassword: String = "",
     val confirmPassword: String = "",
+    val otp: String = "",
+    val challengeId: String? = null,
+    val isOtpSent: Boolean = false,
     val twoFactorEnabled: Boolean = false,
     val isLoading: Boolean = false,
     val showCurrentPassword: Boolean = false,
@@ -63,8 +67,9 @@ class ChangePasswordViewModel @Inject constructor(
     fun toggleShowCurrentPassword() = _uiState.update { it.copy(showCurrentPassword = !it.showCurrentPassword) }
     fun toggleShowNewPassword() = _uiState.update { it.copy(showNewPassword = !it.showNewPassword) }
     fun toggleShowConfirmPassword() = _uiState.update { it.copy(showConfirmPassword = !it.showConfirmPassword) }
+    fun onOtpChange(otp: String) = _uiState.update { it.copy(otp = otp) }
 
-    fun changePassword() {
+    fun requestOtp() {
         if (_uiState.value.newPassword != _uiState.value.confirmPassword) {
             _uiState.update { it.copy(error = "New passwords do not match") }
             return
@@ -77,11 +82,33 @@ class ChangePasswordViewModel @Inject constructor(
 
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null, successMessage = null) }
-            when (val result = authRepository.changePassword(
-                currentPassword = _uiState.value.currentPassword,
+            when (val result = authRepository.requestChangePasswordOtp(_uiState.value.currentPassword)) {
+                is Resource.Success -> _uiState.update { it.copy(isLoading = false, isOtpSent = true, challengeId = result.data, successMessage = "OTP sent to your registered email/phone") }
+                is Resource.Error -> _uiState.update { it.copy(isLoading = false, error = result.message) }
+                Resource.Loading -> Unit
+            }
+        }
+    }
+
+    fun changePassword() {
+        val challengeId = _uiState.value.challengeId
+        if (challengeId == null) {
+            _uiState.update { it.copy(error = "Invalid session, request OTP again") }
+            return
+        }
+        if (_uiState.value.otp.isBlank()) {
+            _uiState.update { it.copy(error = "Please enter OTP") }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null, successMessage = null) }
+            when (val result = authRepository.confirmChangePassword(
+                challengeId = challengeId,
+                otp = _uiState.value.otp,
                 newPassword = _uiState.value.newPassword
             )) {
-                is Resource.Success -> _uiState.update { it.copy(isLoading = false, successMessage = result.data, currentPassword = "", newPassword = "", confirmPassword = "") }
+                is Resource.Success -> _uiState.update { it.copy(isLoading = false, successMessage = result.data, currentPassword = "", newPassword = "", confirmPassword = "", otp = "", challengeId = null, isOtpSent = false) }
                 is Resource.Error -> _uiState.update { it.copy(isLoading = false, error = result.message) }
                 Resource.Loading -> Unit
             }
@@ -208,6 +235,22 @@ fun ChangePasswordScreen(
                     )
                 }
 
+                AnimatedVisibility(visible = uiState.isOtpSent) {
+                    Column {
+                        Text("Enter OTP", style = MaterialTheme.typography.labelSmall, color = Color.DarkGray)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        OutlinedTextField(
+                            value = uiState.otp,
+                            onValueChange = viewModel::onOtpChange,
+                            placeholder = { Text("Enter OTP received", style = MaterialTheme.typography.bodySmall, color = Color.Gray) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                    }
+                }
+
                 if (uiState.error != null) {
                     Text(uiState.error!!, color = MaterialTheme.colorScheme.error)
                 }
@@ -217,7 +260,13 @@ fun ChangePasswordScreen(
                 }
 
                 Button(
-                    onClick = viewModel::changePassword,
+                    onClick = {
+                        if (uiState.isOtpSent) {
+                            viewModel.changePassword()
+                        } else {
+                            viewModel.requestOtp()
+                        }
+                    },
                     enabled = !uiState.isLoading,
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
@@ -225,7 +274,7 @@ fun ChangePasswordScreen(
                     if (uiState.isLoading) {
                         CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
                     } else {
-                        Text("Send OTP", color = Color.White)
+                        Text(if (uiState.isOtpSent) "Confirm OTP & Change Password" else "Send OTP", color = Color.White)
                     }
                 }
             }

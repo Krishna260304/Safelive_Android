@@ -22,8 +22,11 @@ interface AuthApi {
     @POST("auth/logout")
     suspend fun logout(): ApiResponse<Any>
 
-    @POST("auth/change-password")
-    suspend fun changePassword(@Body request: Map<String, String>): ApiResponse<Any>
+    @POST("auth/password/change/request-otp")
+    suspend fun requestChangePasswordOtp(@Body request: Map<String, String>): ApiResponse<Map<String, String>>
+
+    @POST("auth/password/change/confirm")
+    suspend fun confirmChangePassword(@Body request: Map<String, String>): ApiResponse<Any>
 
     @POST("auth/toggle-2fa")
     suspend fun toggle2FA(@Body request: Map<String, Boolean>): ApiResponse<Any>

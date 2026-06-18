@@ -20,7 +20,8 @@ interface AuthRepository {
     suspend fun forgotPassword(email: String): Resource<String>
     suspend fun verifyOtp(email: String, otp: String): Resource<String>
     suspend fun resetPassword(email: String, otp: String, newPassword: String): Resource<String>
-    suspend fun changePassword(currentPassword: String, newPassword: String): Resource<String>
+    suspend fun requestChangePasswordOtp(currentPassword: String): Resource<String>
+    suspend fun confirmChangePassword(challengeId: String, otp: String, newPassword: String): Resource<String>
     suspend fun toggle2FA(enabled: Boolean): Resource<String>
     suspend fun logout(): Resource<Unit>
     suspend fun getMe(): Resource<User>

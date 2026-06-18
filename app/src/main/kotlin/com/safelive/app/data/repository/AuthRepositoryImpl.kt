@@ -112,9 +112,22 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun changePassword(currentPassword: String, newPassword: String): Resource<String> {
+    override suspend fun requestChangePasswordOtp(currentPassword: String): Resource<String> {
         return try {
-            val response = authApi.changePassword(mapOf("currentPassword" to currentPassword, "newPassword" to newPassword))
+            val response = authApi.requestChangePasswordOtp(mapOf("currentPassword" to currentPassword))
+            if (response.success && response.data?.get("challengeId") != null) {
+                Resource.Success(response.data["challengeId"]!!)
+            } else {
+                Resource.Error(response.error ?: "Failed to request OTP")
+            }
+        } catch (e: Exception) {
+            Resource.Error(e.localizedMessage ?: "Unknown error occurred")
+        }
+    }
+
+    override suspend fun confirmChangePassword(challengeId: String, otp: String, newPassword: String): Resource<String> {
+        return try {
+            val response = authApi.confirmChangePassword(mapOf("challengeId" to challengeId, "otp" to otp, "newPassword" to newPassword))
             if (response.success) {
                 Resource.Success("Password changed successfully")
             } else {
