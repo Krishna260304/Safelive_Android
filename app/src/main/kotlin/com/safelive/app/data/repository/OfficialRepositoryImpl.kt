@@ -134,7 +134,14 @@ class OfficialRepositoryImpl @Inject constructor(
 
     override suspend fun rejectIncident(id: String, reason: String): Resource<Ticket> {
         return try {
-            val response = ticketApi.updateStatus(id, mapOf("status" to "rejected", "note" to reason, "notes" to reason, "reason" to reason))
+            val request = mutableMapOf("status" to "rejected")
+            reason.takeIf { it.isNotBlank() }?.let {
+                request["note"] = it
+                request["notes"] = it
+                request["reason"] = it
+                request["message"] = it
+            }
+            val response = ticketApi.updateStatus(id, request)
             if (response.success && response.data != null) {
                 Resource.Success(response.data.toDomain())
             } else {
@@ -147,13 +154,14 @@ class OfficialRepositoryImpl @Inject constructor(
 
     override suspend fun updateStatus(id: String, status: String, note: String?): Resource<Ticket> {
         return try {
-            val map = mutableMapOf("status" to status)
-            if (note != null) {
-                map["note"] = note
-                map["notes"] = note
-                map["reason"] = note
+            val request = mutableMapOf("status" to status)
+            note?.takeIf { it.isNotBlank() }?.let {
+                request["note"] = it
+                request["notes"] = it
+                request["reason"] = it
+                request["message"] = it
             }
-            val response = ticketApi.updateStatus(id, map)
+            val response = ticketApi.updateStatus(id, request)
             if (response.success && response.data != null) {
                 Resource.Success(response.data.toDomain())
             } else {

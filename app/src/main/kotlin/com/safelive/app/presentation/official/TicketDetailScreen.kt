@@ -72,6 +72,7 @@ import com.safelive.app.domain.repository.AuthRepository
 import com.safelive.app.domain.repository.OfficialRepository
 import com.safelive.app.ui.theme.DangerRed
 import com.safelive.app.ui.theme.SuccessGreen
+import com.safelive.app.utils.Constants
 import com.safelive.app.utils.DateUtils
 import com.safelive.app.utils.Resource
 import com.safelive.app.utils.capitalizeWords
@@ -164,9 +165,9 @@ class TicketDetailViewModel @Inject constructor(
         if (currentTicketId.isNotBlank()) loadTicket(currentTicketId)
     }
 
-    fun verifyTicket() = submitStatusUpdate("verified")
-    fun resolveTicket() = submitStatusUpdate("resolved")
-    fun reopenTicket() = submitStatusUpdate("reopened", clearSelections = true)
+    fun verifyTicket() = submitStatusUpdate("verified", noteOverride = "Case verified")
+    fun resolveTicket() = submitStatusUpdate("resolved", noteOverride = "Case resolved")
+    fun reopenTicket() = submitStatusUpdate("reopened", clearSelections = true, noteOverride = "Case reopened")
 
     fun assignWorker() {
         val state = _uiState.value
@@ -221,12 +222,16 @@ class TicketDetailViewModel @Inject constructor(
         }
     }
 
-    private fun submitStatusUpdate(status: String, clearSelections: Boolean = false) {
+    private fun submitStatusUpdate(
+        status: String,
+        clearSelections: Boolean = false,
+        noteOverride: String? = null
+    ) {
         submitTicketAction {
             officialRepository.updateStatus(
                 id = currentTicketId,
                 status = status,
-                note = _uiState.value.actionNote.ifBlank { null }
+                note = noteOverride ?: _uiState.value.actionNote.ifBlank { null }
             )
         }
 
@@ -427,12 +432,15 @@ private fun TicketDetailContent(
 ) {
     val ticket = uiState.ticket ?: return
     var showLogbook by remember { mutableStateOf(false) }
-    val attachmentImages = remember(ticket.imageUrl, ticket.imageUrls) {
+    val attachmentImages = remember(ticket.imageUrl, ticket.imageUrls, ticket.images) {
         buildList {
-            ticket.imageUrls.orEmpty().forEach { url ->
-                if (url.isNotBlank()) add(url)
+            ticket.images.orEmpty().forEach { url ->
+                url.normalizeTicketImageUrl()?.let { add(it) }
             }
-            ticket.imageUrl?.takeIf { it.isNotBlank() }?.let { add(it) }
+            ticket.imageUrls.orEmpty().forEach { url ->
+                url.normalizeTicketImageUrl()?.let { add(it) }
+            }
+            ticket.imageUrl.normalizeTicketImageUrl()?.let { add(it) }
         }.distinct()
     }
     val isDepartment = uiState.officialRole.contains("department", ignoreCase = true)
@@ -442,10 +450,10 @@ private fun TicketDetailContent(
     val status = ticket.status.lowercase()
     val isResolved = status == "resolved" || status == "closed"
     val isReopened = status == "reopened"
-    val canVerify = isDepartment && status !in setOf("verified", "resolved", "closed")
-    val canAssignWorker = (isDepartment || isSupervisor) && status in setOf("open", "pending", "verified", "assigned", "reopened")
+    val canVerify = (isDepartment || isSupervisor) && status in setOf("open", "pending")
+    val canAssignWorker = (isDepartment || isSupervisor) && status in setOf("verified", "assigned", "reopened", "in progress")
     val hasAssignment = !ticket.assignedTo.isNullOrBlank() || !ticket.workerId.isNullOrBlank() || !ticket.workerIds.isNullOrEmpty()
-    val canUpdateProgress = !isResolved && (isSupervisor || isInspector || isWorker)
+    val canUpdateProgress = !isResolved && hasAssignment && (isSupervisor || isInspector || isWorker)
     val canResolve = !isResolved && hasAssignment
     val canReopen = isDepartment && isResolved
     val canAssignSupervisorAfterReopen = isDepartment && isReopened
@@ -773,18 +781,19 @@ private fun AssignmentSection(
                 }
             }
 
-            Button(
+            OutlinedButton(
                 onClick = onButtonClick,
                 enabled = !isLoadingPeople,
                 shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
                 modifier = Modifier.height(56.dp)
             ) {
                 if (isLoadingPeople) {
-                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                 } else {
-                    Icon(buttonIcon, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(buttonIcon, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurface)
                     Spacer(Modifier.width(8.dp))
-                    Text(buttonLabel)
+                    Text(buttonLabel, color = MaterialTheme.colorScheme.onSurface)
                 }
             }
         }
@@ -805,7 +814,6 @@ private fun FieldUpdateSection(
     onSubmit: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Field Inspector", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
         Text(
             "Daily update deadline: 6:00 PM IST | Last inspector update: ${lastInspectorUpdate.orNA().formatMaybeIso()}",
             style = MaterialTheme.typography.bodySmall,
@@ -826,22 +834,23 @@ private fun FieldUpdateSection(
                     unfocusedBorderColor = MaterialTheme.colorScheme.outline,
                     focusedContainerColor = MaterialTheme.colorScheme.surface,
                     unfocusedContainerColor = MaterialTheme.colorScheme.surface
-                )
+                ),
+                shape = RoundedCornerShape(8.dp)
             )
 
             Button(
                 onClick = onSubmit,
                 enabled = !loading,
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF154F8E))
             ) {
                 if (loading) {
                     CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
                 } else {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
                     Spacer(Modifier.width(8.dp))
-                    Text("Submit Update", fontWeight = FontWeight.SemiBold)
+                    Text("Submit Update", fontWeight = FontWeight.SemiBold, color = Color.White)
                 }
             }
         }
@@ -882,13 +891,41 @@ private fun TicketLogbookDialog(
                     }
                 }
 
-                Box(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(max = 420.dp)
-                        .border(1.dp, Color(0xFFD0D7E2), RoundedCornerShape(14.dp))
-                        .background(Color.White, RoundedCornerShape(14.dp))
+                        .border(1.dp, Color(0xFFD0D7E2), RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color.White)
                 ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF327E8C))
+                            .padding(vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "STATUS",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFFE2E8F0))
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text("Location", modifier = Modifier.weight(2f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+                        Text("Details", modifier = Modifier.weight(3f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+                        Text("Date", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+                        Text("Time", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+                    }
+
                     if (entries.isEmpty()) {
                         Box(
                             modifier = Modifier
@@ -903,12 +940,51 @@ private fun TicketLogbookDialog(
                         }
                     } else {
                         LazyColumn(
-                            modifier = Modifier.fillMaxWidth(),
-                            contentPadding = PaddingValues(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                            modifier = Modifier.fillMaxWidth().heightIn(max = 350.dp)
                         ) {
-                            items(entries, key = { it.id ?: "${it.createdAt}-${it.action}" }) { entry ->
-                                LogbookEntryCard(entry = entry)
+                            items(entries.size) { index ->
+                                val entry = entries[index]
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 12.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        text = location,
+                                        modifier = Modifier.weight(2f),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Column(modifier = Modifier.weight(3f)) {
+                                        Text(
+                                            text = entry.toLogbookDetails(),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Spacer(Modifier.height(4.dp))
+                                        Text(
+                                            text = entry.toLogbookMeta(),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = Color(0xFF6B7280)
+                                        )
+                                    }
+                                    Text(
+                                        text = entry.createdAt.formatDatePart(),
+                                        modifier = Modifier.weight(1f),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = entry.createdAt.formatTimePart(),
+                                        modifier = Modifier.weight(1f),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                if (index < entries.size - 1) {
+                                    HorizontalDivider(color = Color(0xFFD0D7E2), thickness = 1.dp)
+                                }
                             }
                         }
                     }
@@ -989,6 +1065,30 @@ private fun Ticket.assignedDisplayText(): String {
 
 private fun Ticket.progressUpdatedDisplay(): String {
     return DateUtils.formatExact(progressUpdatedAt ?: lastInspectorUpdateAt ?: updatedAt)
+}
+
+private fun String?.normalizeTicketImageUrl(): String? {
+    val value = this?.trim().orEmpty()
+    if (value.isBlank()) return null
+    if (
+        value.startsWith("http://") ||
+        value.startsWith("https://") ||
+        value.startsWith("content://") ||
+        value.startsWith("file://") ||
+        value.startsWith("android.resource://")
+    ) {
+        return value
+    }
+
+    val apiBase = Constants.BASE_URL.trimEnd('/')
+    val publicBase = apiBase.substringBefore("/api/", apiBase).trimEnd('/')
+
+    return when {
+        value.startsWith("/api/") -> "$apiBase/${value.removePrefix("/api/")}"
+        value.startsWith("api/") -> "$apiBase/${value.removePrefix("api/")}"
+        value.startsWith("/") -> "$publicBase$value"
+        else -> "$publicBase/$value"
+    }
 }
 
 private fun String?.formatMaybeIso(): String {

@@ -7,6 +7,7 @@ fun String.toStatusColor(): Color {
     return when (this.lowercase()) {
         "open" -> com.safelive.app.ui.theme.StatusOpen
         "assigned" -> com.safelive.app.ui.theme.StatusInProgress
+        "verified" -> com.safelive.app.ui.theme.StatusPending
         "inspection pending" -> com.safelive.app.ui.theme.StatusPending
         "inspection completed" -> com.safelive.app.ui.theme.StatusPending
         "work assigned" -> com.safelive.app.ui.theme.StatusInProgress

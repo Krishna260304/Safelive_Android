@@ -16,18 +16,19 @@ class AuthInterceptor @Inject constructor(
             userPreferencesDataStore.accessToken.first()
         }
 
-        val request = if (!token.isNullOrBlank()) {
-            chain.request().newBuilder()
-                .addHeader("Authorization", "Bearer $token")
-                .addHeader("Accept", "application/json")
-                .addHeader("Content-Type", "application/json")
-                .build()
-        } else {
-            chain.request().newBuilder()
-                .addHeader("Accept", "application/json")
-                .build()
+        val requestBuilder = chain.request().newBuilder()
+            .header("Accept", "application/json")
+
+        if (!token.isNullOrBlank()) {
+            requestBuilder.header("Authorization", "Bearer ${token.trim()}")
+
+            val method = chain.request().method
+            // Don't force application/json on GET/DELETE or if it's already set (e.g. by @Multipart)
+            if (method != "GET" && method != "DELETE" && chain.request().header("Content-Type") == null) {
+                requestBuilder.header("Content-Type", "application/json")
+            }
         }
 
-        return chain.proceed(request)
+        return chain.proceed(requestBuilder.build())
     }
 }

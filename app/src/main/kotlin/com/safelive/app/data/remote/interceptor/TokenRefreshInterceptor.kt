@@ -13,6 +13,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import timber.log.Timber
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 class TokenRefreshInterceptor @Inject constructor(
@@ -57,12 +58,19 @@ class TokenRefreshInterceptor @Inject constructor(
 
     private fun refreshAccessToken(refreshToken: String): Pair<String, String>? {
         return try {
-            val client = OkHttpClient.Builder().build()
+            val client = OkHttpClient.Builder()
+                .connectTimeout(Constants.CONNECT_TIMEOUT, TimeUnit.SECONDS)
+                .readTimeout(Constants.READ_TIMEOUT, TimeUnit.SECONDS)
+                .writeTimeout(Constants.WRITE_TIMEOUT, TimeUnit.SECONDS)
+                .build()
+
             val body = gson.toJson(RefreshTokenRequest(refreshToken))
                 .toRequestBody("application/json".toMediaType())
 
             val request = Request.Builder()
                 .url("${Constants.BASE_URL}auth/refresh-token")
+                .header("Accept", "application/json")
+                .header("Content-Type", "application/json")
                 .post(body)
                 .build()
 
@@ -71,8 +79,9 @@ class TokenRefreshInterceptor @Inject constructor(
                 val json = response.body?.string() ?: return null
                 val map = gson.fromJson(json, Map::class.java)
                 val data = map["data"] as? Map<*, *> ?: return null
-                val accessToken = data["access_token"] as? String ?: return null
-                val newRefreshToken = data["refresh_token"] as? String ?: return null
+
+                val accessToken = (data["access_token"] as? String) ?: (data["token"] as? String) ?: return null
+                val newRefreshToken = (data["refresh_token"] as? String) ?: refreshToken
                 Pair(accessToken, newRefreshToken)
             } else {
                 null

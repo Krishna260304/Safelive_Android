@@ -73,6 +73,7 @@ data class Ticket(
     val location: String,
     val latitude: Double?,
     val longitude: Double?,
+    val images: List<String>?,
     val imageUrl: String?,
     val imageUrls: List<String>?,
     val reportedBy: String,

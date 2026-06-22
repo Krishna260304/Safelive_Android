@@ -126,43 +126,21 @@ private fun LocalLoginContent(
     // Login With Toggle
     Text("Login With", style = MaterialTheme.typography.labelMedium, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Start)
     Spacer(modifier = Modifier.height(8.dp))
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(48.dp)
-            .background(Color(0xFFF0F2F5), RoundedCornerShape(8.dp)),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
-                .padding(4.dp)
-                .background(if (uiState.loginWith == "email") Color.White else Color.Transparent, RoundedCornerShape(6.dp))
-                .clickable { viewModel.onLoginWithChange("email") },
-            contentAlignment = Alignment.Center
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Email, null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Email", fontWeight = if (uiState.loginWith == "email") FontWeight.Bold else FontWeight.Normal)
-            }
-        }
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
-                .padding(4.dp)
-                .background(if (uiState.loginWith == "phone") Color.White else Color.Transparent, RoundedCornerShape(6.dp))
-                .clickable { viewModel.onLoginWithChange("phone") },
-            contentAlignment = Alignment.Center
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Phone, null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Phone", fontWeight = if (uiState.loginWith == "phone") FontWeight.Bold else FontWeight.Normal)
-            }
-        }
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        RoleButton(
+            title = "Email",
+            isSelected = uiState.loginWith == "email",
+            onClick = { viewModel.onLoginWithChange("email") },
+            modifier = Modifier.weight(1f),
+            icon = Icons.Default.Email
+        )
+        RoleButton(
+            title = "Phone",
+            isSelected = uiState.loginWith == "phone",
+            onClick = { viewModel.onLoginWithChange("phone") },
+            modifier = Modifier.weight(1f),
+            icon = Icons.Default.Phone
+        )
     }
 
     Spacer(modifier = Modifier.height(16.dp))
@@ -252,7 +230,7 @@ private fun LocalLoginContent(
         enabled = !uiState.isLoading,
         modifier = Modifier.fillMaxWidth().height(48.dp),
         shape = RoundedCornerShape(8.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7B9FCF)) // Lighter blue
+        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.7f))
     ) {
         if (uiState.isLoading) {
             CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
@@ -445,7 +423,7 @@ private fun OfficialLoginContent(
 }
 
 @Composable
-private fun RoleButton(title: String, isSelected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun RoleButton(title: String, isSelected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, icon: androidx.compose.ui.graphics.vector.ImageVector? = null) {
     OutlinedButton(
         onClick = onClick,
         modifier = modifier.height(48.dp),
@@ -457,6 +435,10 @@ private fun RoleButton(title: String, isSelected: Boolean, onClick: () -> Unit, 
         border = BorderStroke(1.dp, if (isSelected) MaterialTheme.colorScheme.primary else Color.LightGray),
         contentPadding = PaddingValues(horizontal = 4.dp)
     ) {
+        if (icon != null) {
+            Icon(icon, null, modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+        }
         Text(title, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
     }
 }
