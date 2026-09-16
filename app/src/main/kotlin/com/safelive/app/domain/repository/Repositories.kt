@@ -5,7 +5,12 @@ import com.safelive.app.utils.Resource
 import kotlinx.coroutines.flow.Flow
 
 interface AuthRepository {
-    suspend fun login(email: String, password: String): Resource<User>
+    suspend fun login(
+        identifier: String,
+        password: String,
+        expectedUserType: String? = null,
+        expectedOfficialRole: String? = null
+    ): Resource<User>
     suspend fun register(
         fullName: String,
         email: String,
@@ -17,9 +22,9 @@ interface AuthRepository {
         officialRole: String? = null,
         workerSpecialization: String? = null
     ): Resource<User>
-    suspend fun forgotPassword(email: String): Resource<String>
-    suspend fun verifyOtp(email: String, otp: String): Resource<String>
-    suspend fun resetPassword(email: String, otp: String, newPassword: String): Resource<String>
+    suspend fun forgotPassword(email: String?, phone: String?): Resource<String>
+    suspend fun verifyOtp(challengeId: String, otp: String): Resource<User>
+    suspend fun resetPassword(token: String, newPassword: String): Resource<String>
     suspend fun requestChangePasswordOtp(currentPassword: String): Resource<String>
     suspend fun confirmChangePassword(challengeId: String, otp: String, newPassword: String): Resource<String>
     suspend fun requestEnable2FAOtp(): Resource<String>
@@ -45,6 +50,13 @@ interface IncidentRepository {
     ): Flow<Resource<List<Incident>>>
 
     suspend fun getIncidentById(id: String): Resource<Incident>
+    suspend fun updateIncident(
+        id: String,
+        title: String,
+        description: String,
+        category: String,
+        location: String
+    ): Resource<Incident>
     suspend fun createIncident(
         title: String,
         description: String,

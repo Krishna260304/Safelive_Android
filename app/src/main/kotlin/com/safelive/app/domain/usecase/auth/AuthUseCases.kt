@@ -8,8 +8,13 @@ import javax.inject.Inject
 class LoginUseCase @Inject constructor(
     private val authRepository: AuthRepository
 ) {
-    suspend operator fun invoke(email: String, password: String): Resource<*> {
-        val trimmedIdentifier = email.trim()
+    suspend operator fun invoke(
+        identifier: String,
+        password: String,
+        expectedUserType: String? = null,
+        expectedOfficialRole: String? = null
+    ): Resource<*> {
+        val trimmedIdentifier = identifier.trim()
         val identifierValidation = if (trimmedIdentifier.contains("@")) {
             ValidationUtils.validateEmail(trimmedIdentifier)
         } else {
@@ -19,7 +24,12 @@ class LoginUseCase @Inject constructor(
 
         if (password.isBlank()) return Resource.Error("Password is required")
 
-        return authRepository.login(trimmedIdentifier, password)
+        return authRepository.login(
+            identifier = trimmedIdentifier,
+            password = password,
+            expectedUserType = expectedUserType,
+            expectedOfficialRole = expectedOfficialRole
+        )
     }
 }
 
@@ -62,8 +72,9 @@ class RegisterUseCase @Inject constructor(
             return Resource.Error("Please select worker category")
         }
 
+        val apiUserType = if (userType.equals("local", ignoreCase = true)) "citizen" else userType
         return authRepository.register(
-            fullName.trim(), email.trim(), phone.trim(), password, userType, address.trim(), pincode.trim(),
+            fullName.trim(), email.trim(), phone.trim(), password, apiUserType, address.trim(), pincode.trim(),
             if (userType == "official") officialRole else null,
             if (userType == "official" && officialRole == "worker") workerSpecialization else null
         )
@@ -73,32 +84,37 @@ class RegisterUseCase @Inject constructor(
 class ForgotPasswordUseCase @Inject constructor(
     private val authRepository: AuthRepository
 ) {
-    suspend operator fun invoke(email: String): Resource<*> {
-        val emailValidation = ValidationUtils.validateEmail(email)
-        if (!emailValidation.isValid) return Resource.Error(emailValidation.errorMessage ?: "Invalid email")
-        return authRepository.forgotPassword(email.trim())
+    suspend operator fun invoke(email: String, phone: String? = null): Resource<*> {
+        if (email.isBlank() && phone.isNullOrBlank()) return Resource.Error("Email or phone is required")
+        if (email.isNotBlank()) {
+            val emailValidation = ValidationUtils.validateEmail(email)
+            if (!emailValidation.isValid) return Resource.Error(emailValidation.errorMessage ?: "Invalid email")
+        } else if (!ValidationUtils.isValidPhone(phone.orEmpty())) {
+            return Resource.Error("Enter a valid 10-digit mobile number")
+        }
+        return authRepository.forgotPassword(email.trim().takeIf { it.isNotBlank() }, phone?.trim())
     }
 }
 
 class VerifyOtpUseCase @Inject constructor(
     private val authRepository: AuthRepository
 ) {
-    suspend operator fun invoke(email: String, otp: String): Resource<*> {
+    suspend operator fun invoke(challengeId: String, otp: String): Resource<*> {
         if (!ValidationUtils.isValidOtp(otp)) return Resource.Error("Enter a valid 6-digit OTP")
-        return authRepository.verifyOtp(email, otp)
+        return authRepository.verifyOtp(challengeId, otp)
     }
 }
 
 class ResetPasswordUseCase @Inject constructor(
     private val authRepository: AuthRepository
 ) {
-    suspend operator fun invoke(email: String, otp: String, newPassword: String, confirmPassword: String): Resource<*> {
+    suspend operator fun invoke(token: String, newPassword: String, confirmPassword: String): Resource<*> {
         val passwordValidation = ValidationUtils.validatePassword(newPassword)
         if (!passwordValidation.isValid) return Resource.Error(passwordValidation.errorMessage ?: "Invalid password")
         if (!ValidationUtils.isPasswordMatch(newPassword, confirmPassword)) {
             return Resource.Error("Passwords do not match")
         }
-        return authRepository.resetPassword(email, otp, newPassword)
+        return authRepository.resetPassword(token, newPassword)
     }
 }
 

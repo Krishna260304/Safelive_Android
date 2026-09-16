@@ -18,8 +18,6 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "BASE_URL", "\"https://api.safelive.in/api/\"")
         buildConfigField("String", "WS_URL", "\"wss://api.safelive.in/ws\"")
-        buildConfigField("String", "MAPS_API_KEY", "\"YOUR_GOOGLE_MAPS_API_KEY\"")
-        manifestPlaceholders["MAPS_API_KEY"] = "YOUR_GOOGLE_MAPS_API_KEY"
         vectorDrawables {
             useSupportLibrary = true
         }
@@ -109,8 +107,6 @@ dependencies {
     implementation(libs.accompanist.permissions)
     implementation(libs.accompanist.systemuicontroller)
     
-    implementation(libs.maps.compose)
-    implementation(libs.play.services.maps)
     implementation(libs.play.services.location)
     
     implementation(libs.kotlinx.serialization.json)

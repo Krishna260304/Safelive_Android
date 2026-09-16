@@ -27,7 +27,10 @@ data class LoginUiState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val isSuccess: Boolean = false,
-    val userType: String? = null
+    val userType: String? = null,
+    val otpChallengeId: String? = null,
+    val otpChannels: List<String> = emptyList(),
+    val otp: String = ""
 )
 
 // Generates a random simple math question and its answer
@@ -51,7 +54,8 @@ private fun generateSecurityQuestion(): Pair<String, String> {
 
 @HiltViewModel
 class LoginViewModel @Inject constructor(
-    private val loginUseCase: LoginUseCase
+    private val loginUseCase: LoginUseCase,
+    private val verifyOtpUseCase: VerifyOtpUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoginUiState())
@@ -91,17 +95,63 @@ class LoginViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             val loginIdentifier = if (state.loginMode == "local" && state.loginWith == "phone") state.phone else state.email
-            val result = loginUseCase(loginIdentifier, state.password)
+            val expectedUserType = if (state.loginMode == "local") "citizen" else "official"
+            val expectedOfficialRole = if (state.loginMode == "official") {
+                when (state.officialRole) {
+                    "Department Login" -> "department"
+                    "Supervisor Login" -> "supervisor"
+                    "Field Inspector Login" -> "field_inspector"
+                    "Worker Login" -> "worker"
+                    else -> null
+                }
+            } else {
+                null
+            }
+            val result = loginUseCase(
+                identifier = loginIdentifier,
+                password = state.password,
+                expectedUserType = expectedUserType,
+                expectedOfficialRole = expectedOfficialRole
+            )
             when (result) {
                 is Resource.Success<*> -> {
                     val user = result.data as? User
                     _uiState.update { it.copy(isLoading = false, isSuccess = true, userType = user?.userType) }
+                }
+                is Resource.OtpRequired -> _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        otpChallengeId = result.challengeId,
+                        otpChannels = result.channels,
+                        otp = ""
+                    )
                 }
                 is Resource.Error -> _uiState.update { it.copy(isLoading = false, error = result.message) }
                 Resource.Loading -> Unit
             }
         }
     }
+
+    fun onOtpChange(value: String) = _uiState.update {
+        it.copy(otp = value.filter(Char::isDigit).take(6), error = null)
+    }
+
+    fun verifyLoginOtp() {
+        val challengeId = _uiState.value.otpChallengeId ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            when (val result = verifyOtpUseCase(challengeId, _uiState.value.otp)) {
+                is Resource.Success<*> -> {
+                    val user = result.data as? User
+                    _uiState.update { it.copy(isLoading = false, isSuccess = true, userType = user?.userType, otpChallengeId = null) }
+                }
+                is Resource.Error -> _uiState.update { it.copy(isLoading = false, error = result.message) }
+                is Resource.OtpRequired, Resource.Loading -> Unit
+            }
+        }
+    }
+
+    fun cancelOtp() = _uiState.update { it.copy(otpChallengeId = null, otp = "", error = null) }
 
     fun clearError() = _uiState.update { it.copy(error = null) }
 }
@@ -177,6 +227,7 @@ class RegisterViewModel @Inject constructor(
                         )
                     }
 
+                    is Resource.OtpRequired -> Unit
                     Resource.Loading -> Unit
                 }
             }
@@ -221,6 +272,7 @@ class RegisterViewModel @Inject constructor(
             when (result) {
                 is Resource.Success<*> -> _uiState.update { it.copy(isLoading = false, isSuccess = true) }
                 is Resource.Error -> _uiState.update { it.copy(isLoading = false, error = result.message) }
+                is Resource.OtpRequired -> Unit
                 Resource.Loading -> Unit
             }
         }
@@ -229,6 +281,8 @@ class RegisterViewModel @Inject constructor(
 
 data class ForgotPasswordUiState(
     val email: String = "",
+    val phone: String = "",
+    val method: String = "email",
     val isLoading: Boolean = false,
     val error: String? = null,
     val isSuccess: Boolean = false,
@@ -244,16 +298,23 @@ class ForgotPasswordViewModel @Inject constructor(
     val uiState: StateFlow<ForgotPasswordUiState> = _uiState.asStateFlow()
 
     fun onEmailChange(email: String) = _uiState.update { it.copy(email = email, error = null) }
+    fun onPhoneChange(phone: String) = _uiState.update { it.copy(phone = ValidationUtils.digitsOnly(phone, 10), error = null) }
+    fun onMethodChange(method: String) = _uiState.update { it.copy(method = method, error = null) }
 
     fun sendOtp() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-            val result = forgotPasswordUseCase(_uiState.value.email)
+            val state = _uiState.value
+            val result = forgotPasswordUseCase(
+                email = state.email.takeIf { state.method == "email" }.orEmpty(),
+                phone = state.phone.takeIf { state.method == "phone" }
+            )
             when (result) {
                 is Resource.Success<*> -> _uiState.update {
                     it.copy(isLoading = false, isSuccess = true, message = result.data as? String)
                 }
                 is Resource.Error -> _uiState.update { it.copy(isLoading = false, error = result.message) }
+                is Resource.OtpRequired -> Unit
                 Resource.Loading -> Unit
             }
         }
@@ -284,6 +345,7 @@ class OtpVerificationViewModel @Inject constructor(
             when (result) {
                 is Resource.Success<*> -> _uiState.update { it.copy(isLoading = false, isVerified = true) }
                 is Resource.Error -> _uiState.update { it.copy(isLoading = false, error = result.message) }
+                is Resource.OtpRequired -> Unit
                 Resource.Loading -> Unit
             }
         }
@@ -311,14 +373,15 @@ class ResetPasswordViewModel @Inject constructor(
     fun onConfirmPasswordChange(confirm: String) = _uiState.update { it.copy(confirmPassword = confirm, error = null) }
     fun togglePasswordVisibility() = _uiState.update { it.copy(isPasswordVisible = !it.isPasswordVisible) }
 
-    fun resetPassword(email: String, otp: String) {
+    fun resetPassword(token: String, otp: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             val state = _uiState.value
-            val result = resetPasswordUseCase(email, otp, state.newPassword, state.confirmPassword)
+            val result = resetPasswordUseCase(token, state.newPassword, state.confirmPassword)
             when (result) {
                 is Resource.Success<*> -> _uiState.update { it.copy(isLoading = false, isSuccess = true) }
                 is Resource.Error -> _uiState.update { it.copy(isLoading = false, error = result.message) }
+                is Resource.OtpRequired -> Unit
                 Resource.Loading -> Unit
             }
         }

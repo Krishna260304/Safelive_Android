@@ -2,6 +2,7 @@ package com.safelive.app.presentation.main
 import androidx.compose.material3.MaterialTheme
 
 import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -85,7 +86,9 @@ fun SosPopupScreen(
                 Spacer(modifier = Modifier.height(32.dp))
 
                 Button(
-                    onClick = { /* TODO: Call Police */ },
+                    onClick = {
+                        context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:100")))
+                    },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = DangerRed),
                     shape = RoundedCornerShape(12.dp)

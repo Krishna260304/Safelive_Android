@@ -1,5 +1,6 @@
 @file:Suppress("DEPRECATION")
 package com.safelive.app.presentation.incidents
+import android.content.Intent
 import androidx.compose.material3.MaterialTheme
 
 import androidx.compose.animation.AnimatedVisibility
@@ -14,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -29,9 +31,11 @@ import com.safelive.app.utils.Constants
 @Composable
 fun IncidentListScreen(
     navController: NavController,
-    viewModel: IncidentListViewModel = hiltViewModel()
+    viewModel: IncidentListViewModel = hiltViewModel(),
+    officialMode: Boolean = false
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     var showFilters by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -42,13 +46,25 @@ fun IncidentListScreen(
                     .statusBarsPadding()
             ) {
                 TopAppBar(
-                    title = { Text("Incidents", color = Color.White, fontWeight = FontWeight.Bold) },
+                    title = { Text(if (officialMode) "Reports" else "Incidents", color = Color.White, fontWeight = FontWeight.Bold) },
                     navigationIcon = {
                         IconButton(onClick = { navController.navigateUp() }) {
                             Icon(Icons.Default.ArrowBack, null, tint = Color.White)
                         }
                     },
                     actions = {
+                        if (officialMode) {
+                            IconButton(onClick = {
+                                val csv = buildIncidentCsv(uiState.incidents)
+                                context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/csv"
+                                    putExtra(Intent.EXTRA_SUBJECT, "SafeLive incident report")
+                                    putExtra(Intent.EXTRA_TEXT, csv)
+                                }, "Share incident report"))
+                            }) {
+                                Icon(Icons.Default.Download, null, tint = Color.White)
+                            }
+                        }
                         IconButton(onClick = { showFilters = !showFilters }) {
                             Icon(
                                 if (showFilters) Icons.Default.FilterListOff else Icons.Default.FilterList,
@@ -87,13 +103,15 @@ fun IncidentListScreen(
             }
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { navController.navigate(Screen.CreateIncident.route) },
-                icon = { Icon(Icons.Default.Add, null) },
-                text = { Text("Report Issue") },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = Color.White
-            )
+            if (!officialMode) {
+                ExtendedFloatingActionButton(
+                    onClick = { navController.navigate(Screen.CreateIncident.route) },
+                    icon = { Icon(Icons.Default.Add, null) },
+                    text = { Text("Report Issue") },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = Color.White
+                )
+            }
         }
     ) { paddingValues ->
         Box(
@@ -160,6 +178,22 @@ fun IncidentListScreen(
                 }
             }
         }
+    }
+}
+
+private fun buildIncidentCsv(incidents: List<com.safelive.app.domain.model.Incident>): String = buildString {
+    appendLine("Incident ID,Title,Category,Status,Priority,Location,Created At")
+    incidents.forEach { incident ->
+        fun csv(value: String?) = "\"${value.orEmpty().replace("\"", "\"\"")}\""
+        appendLine(listOf(
+            csv(incident.incidentId ?: incident.id),
+            csv(incident.title),
+            csv(incident.category),
+            csv(incident.status),
+            csv(incident.priority),
+            csv(incident.location),
+            csv(incident.createdAt)
+        ).joinToString(","))
     }
 }
 

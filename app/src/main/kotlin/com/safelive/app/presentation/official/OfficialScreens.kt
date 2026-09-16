@@ -62,6 +62,7 @@ fun OfficialDashboardScreen(
                     listOf(
                         Triple("Dashboard", Icons.Default.Home, null as String?),
                         Triple("Tickets", Icons.AutoMirrored.Filled.Assignment, Screen.IncidentQueue.route),
+                        Triple("Reports", Icons.Default.Assessment, Screen.OfficialReports.route),
                         Triple("Live Map", Icons.Default.LocationOn, Screen.MapView.route),
                         Triple("Alerts", Icons.Default.Notifications, Screen.OfficialAlerts.route),
                         Triple("Profile", Icons.Default.Person, Screen.Profile.route)
@@ -70,18 +71,21 @@ fun OfficialDashboardScreen(
                     listOf(
                         Triple("Dashboard", Icons.Default.Home, null as String?),
                         Triple("Tickets", Icons.AutoMirrored.Filled.Assignment, Screen.IncidentQueue.route),
+                        Triple("Reports", Icons.Default.Assessment, Screen.OfficialReports.route),
                         Triple("Profile", Icons.Default.Person, Screen.Profile.route)
                     )
                 } else if (uiState.officialRole.equals("worker", ignoreCase = true)) {
                     listOf(
                         Triple("Dashboard", Icons.Default.Home, null as String?),
                         Triple("Tickets", Icons.AutoMirrored.Filled.Assignment, Screen.IncidentQueue.route),
+                        Triple("Reports", Icons.Default.Assessment, Screen.OfficialReports.route),
                         Triple("Profile", Icons.Default.Person, Screen.Profile.route)
                     )
                 } else {
                     listOf(
                         Triple("Home", Icons.Default.Home, null as String?),
                         Triple("Tickets", Icons.AutoMirrored.Filled.Assignment, Screen.IncidentQueue.route),
+                        Triple("Reports", Icons.Default.Assessment, Screen.OfficialReports.route),
                         Triple("Team", Icons.Default.Group, Screen.TeamManagement.route),
                         Triple("Live Map", Icons.Default.Map, Screen.MapView.route),
                         Triple("Analytics", Icons.Default.BarChart, Screen.OfficialAnalytics.route),
@@ -173,15 +177,15 @@ fun OfficialDashboardScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Assigned Incidents", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Tickets", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     TextButton(onClick = { navController.navigate(Screen.AssignedIncidents.route) }) {
                         Text("View All")
                     }
                 }
             }
 
-            val incidents = uiState.stats?.recentIncidents ?: emptyList()
-            if (incidents.isEmpty()) {
+            val tickets = uiState.recentTickets
+            if (tickets.isEmpty()) {
                 item {
                     EmptyStateCard(
                         icon = "📋",
@@ -190,10 +194,10 @@ fun OfficialDashboardScreen(
                     )
                 }
             } else {
-                items(incidents, key = { it.id }) { incident ->
-                    OfficialIncidentCard(
-                        incident = incident,
-                        onClick = { navController.navigate(Screen.IncidentDetail.createRoute(incident.id)) }
+                items(tickets, key = { it.id }) { ticket ->
+                    OfficialTicketCard(
+                        ticket = ticket,
+                        onClick = { navController.navigate(Screen.TicketDetail.createRoute(ticket.ticketId ?: ticket.id)) }
                     )
                 }
             }
@@ -203,7 +207,7 @@ fun OfficialDashboardScreen(
 }
 
 @Composable
-private fun OfficialStatsSection(stats: com.safelive.app.domain.model.DashboardStats?, isLoading: Boolean) {
+private fun OfficialStatsSection(stats: com.safelive.app.domain.model.TicketStats?, isLoading: Boolean) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -212,16 +216,16 @@ private fun OfficialStatsSection(stats: com.safelive.app.domain.model.DashboardS
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            StatKpiCard("Total", stats?.stats?.total ?: 0, com.safelive.app.ui.theme.PrimaryTeal, isLoading, Icons.Default.Dashboard, Modifier.weight(1f))
-            StatKpiCard("Open", stats?.stats?.open ?: 0, com.safelive.app.ui.theme.StatusOpen, isLoading, Icons.Default.Inbox, Modifier.weight(1f))
-            StatKpiCard("Resolved", stats?.stats?.resolved ?: 0, com.safelive.app.ui.theme.StatusResolved, isLoading, Icons.Default.CheckCircle, Modifier.weight(1f))
+            StatKpiCard("Total", stats?.totalTickets ?: 0, com.safelive.app.ui.theme.PrimaryTeal, isLoading, Icons.Default.Dashboard, Modifier.weight(1f))
+            StatKpiCard("Open", stats?.openTickets ?: 0, com.safelive.app.ui.theme.StatusOpen, isLoading, Icons.Default.Inbox, Modifier.weight(1f))
+            StatKpiCard("Resolved", stats?.resolvedToday ?: 0, com.safelive.app.ui.theme.StatusResolved, isLoading, Icons.Default.CheckCircle, Modifier.weight(1f))
         }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            StatKpiCard("Pending", stats?.stats?.pending ?: 0, com.safelive.app.ui.theme.StatusPending, isLoading, Icons.Default.PendingActions, Modifier.weight(1f))
-            StatKpiCard("In Progress", stats?.stats?.inProgress ?: 0, com.safelive.app.ui.theme.StatusInProgress, isLoading, Icons.Default.PlayCircle, Modifier.weight(1f))
+            StatKpiCard("Pending", stats?.pendingTickets ?: 0, com.safelive.app.ui.theme.StatusPending, isLoading, Icons.Default.PendingActions, Modifier.weight(1f))
+            StatKpiCard("In Progress", stats?.inProgress ?: 0, com.safelive.app.ui.theme.StatusInProgress, isLoading, Icons.Default.PlayCircle, Modifier.weight(1f))
         }
     }
 }
@@ -438,8 +442,8 @@ fun IncidentQueueScreen(
                 item {
                     EmptyStateCard(
                         icon = "🎉",
-                        title = "Queue is empty",
-                        message = "All incidents have been assigned"
+                        title = "No tickets found",
+                        message = "There are no tickets available for your account right now"
                     )
                 }
             } else {

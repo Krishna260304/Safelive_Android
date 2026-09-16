@@ -9,6 +9,11 @@ sealed class Resource<out T> {
     ) : Resource<Nothing>()
     data object Loading : Resource<Nothing>()
 
+    data class OtpRequired(
+        val challengeId: String,
+        val channels: List<String> = emptyList()
+    ) : Resource<Nothing>()
+
     val isSuccess get() = this is Success
     val isError get() = this is Error
     val isLoading get() = this is Loading

@@ -63,6 +63,7 @@ class CitizenDashboardViewModel @Inject constructor(
             when (val result = getDashboardStatsUseCase()) {
                 is Resource.Success -> _uiState.update { it.copy(stats = result.data, isLoading = false, isRefreshing = false) }
                 is Resource.Error -> _uiState.update { it.copy(error = result.message, isLoading = false, isRefreshing = false) }
+                is Resource.OtpRequired -> Unit
                 Resource.Loading -> Unit
             }
         }

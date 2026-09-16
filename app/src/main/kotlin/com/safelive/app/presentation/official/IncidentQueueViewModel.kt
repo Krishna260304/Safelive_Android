@@ -8,6 +8,8 @@ import com.safelive.app.utils.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import javax.inject.Inject
 
 data class IncidentQueueUiState(
@@ -26,6 +28,12 @@ class IncidentQueueViewModel @Inject constructor(
 
     init {
         loadQueue()
+        viewModelScope.launch {
+            while (isActive) {
+                delay(30_000)
+                loadQueue()
+            }
+        }
     }
 
     fun loadQueue() {
@@ -34,6 +42,7 @@ class IncidentQueueViewModel @Inject constructor(
                 when (result) {
                     is Resource.Success -> _uiState.update { it.copy(incidents = result.data, isLoading = false) }
                     is Resource.Error -> _uiState.update { it.copy(error = result.message, isLoading = false) }
+                    is Resource.OtpRequired -> Unit
                     Resource.Loading -> _uiState.update { it.copy(isLoading = true) }
                 }
             }

@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -47,11 +48,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import android.content.Intent
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -62,7 +65,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
-import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
+import coil.request.ImageRequest
 import com.safelive.app.navigation.Screen
 import com.safelive.app.data.remote.api.ProfileApi
 import com.safelive.app.data.remote.dto.UserDto
@@ -73,6 +77,7 @@ import com.safelive.app.domain.repository.OfficialRepository
 import com.safelive.app.ui.theme.DangerRed
 import com.safelive.app.ui.theme.SuccessGreen
 import com.safelive.app.utils.Constants
+import com.safelive.app.utils.ImageUrlUtils
 import com.safelive.app.utils.DateUtils
 import com.safelive.app.utils.Resource
 import com.safelive.app.utils.capitalizeWords
@@ -86,13 +91,16 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import okhttp3.Headers
 import javax.inject.Inject
+import com.safelive.app.data.local.datastore.UserPreferencesDataStore
 
 data class TicketDetailUiState(
     val ticket: Ticket? = null,
     val logbook: List<LogbookEntry> = emptyList(),
     val workers: List<UserDto> = emptyList(),
     val supervisors: List<UserDto> = emptyList(),
+    val currentUserId: String = "",
     val selectedWorkerId: String = "",
     val selectedSupervisorId: String = "",
     val progressUpdate: String = "",
@@ -104,14 +112,16 @@ data class TicketDetailUiState(
     val isSubmitting: Boolean = false,
     val error: String? = null,
     val message: String? = null,
-    val officialRole: String = ""
+    val officialRole: String = "",
+    val accessToken: String = ""
 )
 
 @HiltViewModel
 class TicketDetailViewModel @Inject constructor(
     private val officialRepository: OfficialRepository,
     private val authRepository: AuthRepository,
-    private val profileApi: ProfileApi
+    private val profileApi: ProfileApi,
+    private val userPreferencesDataStore: UserPreferencesDataStore
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TicketDetailUiState())
@@ -122,10 +132,21 @@ class TicketDetailViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             authRepository.getOfficialRole().collectLatest { role ->
-                _uiState.update { it.copy(officialRole = role.orEmpty()) }
+                val normalizedRole = role.orEmpty()
+                _uiState.update { it.copy(officialRole = normalizedRole) }
+                loadPeople(normalizedRole)
             }
         }
-        loadPeople()
+        viewModelScope.launch {
+            authRepository.getUserId().collectLatest { userId ->
+                _uiState.update { it.copy(currentUserId = userId.orEmpty()) }
+            }
+        }
+        viewModelScope.launch {
+            userPreferencesDataStore.accessToken.collectLatest { token ->
+                _uiState.update { it.copy(accessToken = token.orEmpty()) }
+            }
+        }
     }
 
     fun loadTicket(ticketId: String) {
@@ -150,6 +171,7 @@ class TicketDetailViewModel @Inject constructor(
                     it.copy(isLoading = false, error = result.message)
                 }
 
+                is Resource.OtpRequired -> Unit
                 Resource.Loading -> Unit
             }
         }
@@ -167,7 +189,7 @@ class TicketDetailViewModel @Inject constructor(
 
     fun verifyTicket() = submitStatusUpdate("verified", noteOverride = "Case verified")
     fun resolveTicket() = submitStatusUpdate("resolved", noteOverride = "Case resolved")
-    fun reopenTicket() = submitStatusUpdate("reopened", clearSelections = true, noteOverride = "Case reopened")
+    fun reopenTicket() = submitStatusUpdate("open", clearSelections = true, noteOverride = "Case reopened")
 
     fun assignWorker() {
         val state = _uiState.value
@@ -270,19 +292,39 @@ class TicketDetailViewModel @Inject constructor(
                     it.copy(isSubmitting = false, error = result.message)
                 }
 
+                is Resource.OtpRequired -> Unit
                 Resource.Loading -> Unit
             }
         }
     }
 
-    private fun loadPeople() {
+    private fun loadPeople(officialRole: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingPeople = true) }
             try {
-                val workersResponse = profileApi.getWorkers()
-                val managedResponse = profileApi.getManagedOfficials()
-                val workers = workersResponse.data.orEmpty().filter { it.officialRole.equals("worker", ignoreCase = true) }
-                val supervisors = managedResponse.data.orEmpty().filter { it.officialRole.equals("supervisor", ignoreCase = true) }
+                val normalizedRole = officialRole.normalizedOfficialRole()
+                val loadWorkers = normalizedRole == "department" || normalizedRole == "supervisor"
+                val loadSupervisors = normalizedRole == "department"
+                val workersResponse = if (loadWorkers) profileApi.getWorkers() else null
+                val supervisorsResponse = if (loadSupervisors) profileApi.getManagedOfficials() else null
+                if ((workersResponse != null && !workersResponse.success) || (supervisorsResponse != null && !supervisorsResponse.success)) {
+                    val message = workersResponse?.error ?: supervisorsResponse?.error ?: "Unable to load available users"
+                    _uiState.update {
+                        it.copy(
+                            workers = emptyList(),
+                            supervisors = emptyList(),
+                            isLoadingPeople = false,
+                            error = message
+                        )
+                    }
+                    return@launch
+                }
+                val workers = workersResponse?.data.orEmpty()
+                val supervisors = if (loadSupervisors) {
+                    supervisorsResponse?.data.orEmpty().filter { it.officialRole.equals("supervisor", ignoreCase = true) }
+                } else {
+                    emptyList()
+                }
                 _uiState.update {
                     it.copy(
                         workers = workers,
@@ -291,7 +333,7 @@ class TicketDetailViewModel @Inject constructor(
                     )
                 }
             } catch (_: Exception) {
-                _uiState.update { it.copy(isLoadingPeople = false) }
+                _uiState.update { it.copy(isLoadingPeople = false, error = "Unable to load available users") }
             }
         }
     }
@@ -308,6 +350,7 @@ class TicketDetailViewModel @Inject constructor(
                     it.copy(isLoadingLogbook = false, error = result.message)
                 }
 
+                is Resource.OtpRequired -> Unit
                 Resource.Loading -> Unit
             }
         }
@@ -431,39 +474,66 @@ private fun TicketDetailContent(
     onSupervisorNoteChange: (String) -> Unit
 ) {
     val ticket = uiState.ticket ?: return
+    val context = LocalContext.current
     var showLogbook by remember { mutableStateOf(false) }
     val attachmentImages = remember(ticket.imageUrl, ticket.imageUrls, ticket.images) {
         buildList {
-            ticket.images.orEmpty().forEach { url ->
-                url.normalizeTicketImageUrl()?.let { add(it) }
-            }
             ticket.imageUrls.orEmpty().forEach { url ->
-                url.normalizeTicketImageUrl()?.let { add(it) }
+                ImageUrlUtils.normalize(url)?.let { add(it) }
             }
-            ticket.imageUrl.normalizeTicketImageUrl()?.let { add(it) }
+            ImageUrlUtils.normalize(ticket.imageUrl)?.let { add(it) }
+            ticket.images.orEmpty().forEach { url ->
+                ImageUrlUtils.normalize(url)?.let { add(it) }
+            }
         }.distinct()
     }
-    val isDepartment = uiState.officialRole.contains("department", ignoreCase = true)
-    val isSupervisor = uiState.officialRole.contains("supervisor", ignoreCase = true)
-    val isInspector = uiState.officialRole.contains("field_inspector", ignoreCase = true)
-    val isWorker = uiState.officialRole.contains("worker", ignoreCase = true)
+    val currentRole = uiState.officialRole.normalizedOfficialRole()
+    val isDepartment = currentRole == "department"
+    val isSupervisor = currentRole == "supervisor"
+    val isInspector = currentRole == "field_inspector"
+    val isWorker = currentRole == "worker"
     val status = ticket.status.lowercase()
     val isResolved = status == "resolved" || status == "closed"
-    val isReopened = status == "reopened"
-    val canVerify = (isDepartment || isSupervisor) && status in setOf("open", "pending")
-    val canAssignWorker = (isDepartment || isSupervisor) && status in setOf("verified", "assigned", "reopened", "in progress")
-    val hasAssignment = !ticket.assignedTo.isNullOrBlank() || !ticket.workerId.isNullOrBlank() || !ticket.workerIds.isNullOrEmpty()
-    val canUpdateProgress = !isResolved && hasAssignment && (isSupervisor || isInspector || isWorker)
-    val canResolve = !isResolved && hasAssignment
+    val isVerified = status == "verified"
+    val isReopened = ticket.isReopenedCase()
+    val hasAssignment = ticket.hasAssignedWorkers()
+    val reopenedSupervisorId = ticket.reopenedSupervisorId.orEmpty().trim()
+    val hasReopenedSupervisor = reopenedSupervisorId.isNotBlank()
+    val supervisorAssignedToCurrentUser =
+        isDepartment || !isReopened || !hasReopenedSupervisor || reopenedSupervisorId == uiState.currentUserId
+    val canRoleRunWorkflow =
+        (isDepartment || isSupervisor) &&
+            supervisorAssignedToCurrentUser &&
+            !(!hasReopenedSupervisor && isReopened)
+    val canVerifyStep = !isResolved && !isVerified
+    val canAssignWorkersStep = !isResolved && isVerified && !hasAssignment
+    val canResolveStep = !isResolved && isVerified && (hasAssignment || isReopened)
+    val canVerify = canRoleRunWorkflow && canVerifyStep
+    val canAssignWorker = canRoleRunWorkflow && canAssignWorkersStep
+    val canUpdateProgress = isInspector && !isResolved && status in setOf("open", "pending", "verified", "in_progress")
+    val canResolve = canRoleRunWorkflow && canResolveStep
     val canReopen = isDepartment && isResolved
-    val canAssignSupervisorAfterReopen = isDepartment && isReopened
+    val canAssignSupervisorAfterReopen = isDepartment && isReopened && !hasReopenedSupervisor
 
     if (showLogbook) {
         TicketLogbookDialog(
             title = ticket.title,
             location = ticket.location,
             entries = uiState.logbook,
-            onDismiss = { showLogbook = false }
+            onDismiss = { showLogbook = false },
+            onDownload = {
+                val report = buildLogbookShareText(ticket.title, ticket.location, uiState.logbook)
+                context.startActivity(
+                    Intent.createChooser(
+                        Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_SUBJECT, "Ticket LogBook - ${ticket.title}")
+                            putExtra(Intent.EXTRA_TEXT, report)
+                        },
+                        "Share ticket logbook"
+                    )
+                )
+            }
         )
     }
 
@@ -507,7 +577,7 @@ private fun TicketDetailContent(
                         IconButton(
                             onClick = {
                                 navController.navigate(
-                                    Screen.Chat.createRoute("incident_${ticket.incidentId ?: ticket.id}")
+                                    Screen.Chat.createRoute(ticket.incidentId ?: ticket.id)
                                 )
                             },
                             modifier = Modifier
@@ -565,14 +635,9 @@ private fun TicketDetailContent(
                     )
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         items(attachmentImages) { imageUrl ->
-                            AsyncImage(
-                                model = imageUrl,
-                                contentDescription = "Incident image",
-                                modifier = Modifier
-                                    .size(width = 180.dp, height = 120.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp)),
-                                contentScale = ContentScale.Crop
+                            TicketImageThumbnail(
+                                imageUrl = imageUrl,
+                                accessToken = uiState.accessToken
                             )
                         }
                     }
@@ -586,6 +651,17 @@ private fun TicketDetailContent(
                     uiState.error!!,
                     modifier = Modifier.padding(12.dp),
                     color = MaterialTheme.colorScheme.onErrorContainer,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+
+        if (isReopened && !hasReopenedSupervisor) {
+            Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(12.dp)) {
+                Text(
+                    "Assign a supervisor first for this reopened ticket before workflow actions can continue.",
+                    modifier = Modifier.padding(12.dp),
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
                     style = MaterialTheme.typography.bodySmall
                 )
             }
@@ -857,12 +933,29 @@ private fun FieldUpdateSection(
     }
 }
 
+private fun buildLogbookShareText(
+    title: String,
+    location: String,
+    entries: List<LogbookEntry>
+): String = buildString {
+    appendLine("Ticket LogBook")
+    appendLine(title)
+    appendLine(location)
+    appendLine()
+    entries.forEach { entry ->
+        appendLine("${entry.createdAt.orNA()} | ${entry.action.orNA()}")
+        entry.message?.takeIf { it.isNotBlank() }?.let { appendLine(it) }
+        appendLine()
+    }
+}
+
 @Composable
 private fun TicketLogbookDialog(
     title: String,
     location: String,
     entries: List<LogbookEntry>,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onDownload: () -> Unit
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -886,7 +979,7 @@ private fun TicketLogbookDialog(
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text("Total updates: ${entries.size}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    OutlinedButton(onClick = { }, shape = RoundedCornerShape(12.dp)) {
+                    OutlinedButton(onClick = onDownload, shape = RoundedCornerShape(12.dp)) {
                         Text("Download")
                     }
                 }
@@ -942,8 +1035,7 @@ private fun TicketLogbookDialog(
                         LazyColumn(
                             modifier = Modifier.fillMaxWidth().heightIn(max = 350.dp)
                         ) {
-                            items(entries.size) { index ->
-                                val entry = entries[index]
+                            itemsIndexed(entries) { index, entry ->
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -1063,32 +1155,86 @@ private fun Ticket.assignedDisplayText(): String {
     return fallbackName ?: "Unassigned"
 }
 
+@Composable
+private fun TicketImageThumbnail(imageUrl: String, accessToken: String) {
+    val context = LocalContext.current
+    val request = remember(imageUrl, accessToken) {
+        ImageRequest.Builder(context)
+            .data(imageUrl)
+            .apply {
+                accessToken.takeIf { it.isNotBlank() }?.let { token ->
+                    headers(
+                        Headers.Builder()
+                            .add("Authorization", "Bearer $token")
+                            .build()
+                    )
+                }
+            }
+            .crossfade(true)
+            .build()
+    }
+
+    SubcomposeAsyncImage(
+        model = request,
+        contentDescription = "Incident image",
+        modifier = Modifier
+            .size(width = 180.dp, height = 120.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp)),
+        contentScale = ContentScale.Crop,
+        loading = {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+            }
+        },
+        error = {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Image unavailable",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+    )
+}
+
 private fun Ticket.progressUpdatedDisplay(): String {
     return DateUtils.formatExact(progressUpdatedAt ?: lastInspectorUpdateAt ?: updatedAt)
 }
 
-private fun String?.normalizeTicketImageUrl(): String? {
-    val value = this?.trim().orEmpty()
-    if (value.isBlank()) return null
-    if (
-        value.startsWith("http://") ||
-        value.startsWith("https://") ||
-        value.startsWith("content://") ||
-        value.startsWith("file://") ||
-        value.startsWith("android.resource://")
-    ) {
-        return value
-    }
+private fun Ticket.hasAssignedWorkers(): Boolean {
+    return assignees.orEmpty().isNotEmpty() ||
+        !assignedTo.isNullOrBlank() ||
+        !assigneeUserId.isNullOrBlank() ||
+        !workerId.isNullOrBlank() ||
+        !workerIds.isNullOrEmpty()
+}
 
-    val apiBase = Constants.BASE_URL.trimEnd('/')
-    val publicBase = apiBase.substringBefore("/api/", apiBase).trimEnd('/')
-
-    return when {
-        value.startsWith("/api/") -> "$apiBase/${value.removePrefix("/api/")}"
-        value.startsWith("api/") -> "$apiBase/${value.removePrefix("api/")}"
-        value.startsWith("/") -> "$publicBase$value"
-        else -> "$publicBase/$value"
-    }
+private fun Ticket.isReopenedCase(): Boolean {
+    return status.equals("reopened", ignoreCase = true) ||
+        reopenedBy != null ||
+        reopenWarning != null ||
+        !reopenedSupervisorId.isNullOrBlank()
 }
 
 private fun String?.formatMaybeIso(): String {
@@ -1104,6 +1250,10 @@ private fun String?.formatDatePart(): String {
 private fun String?.formatTimePart(): String {
     if (this.isNullOrBlank()) return "N/A"
     return DateUtils.formatTime(this)
+}
+
+private fun String?.normalizedOfficialRole(): String {
+    return this?.trim().orEmpty().lowercase().replace("-", "_")
 }
 
 private fun LogbookEntry.toLogbookTitle(): String {

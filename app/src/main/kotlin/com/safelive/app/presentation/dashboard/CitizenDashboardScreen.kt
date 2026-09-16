@@ -1,4 +1,6 @@
 package com.safelive.app.presentation.dashboard
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.material3.MaterialTheme
 
 import androidx.compose.animation.*
@@ -19,6 +21,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -159,6 +162,7 @@ fun CitizenDashboardScreen(
 
 @Composable
 private fun CitizenQuickActions(navController: NavController) {
+    val context = LocalContext.current
     Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -197,7 +201,9 @@ private fun CitizenQuickActions(navController: NavController) {
                 title = "Emergency Contacts",
                 icon = Icons.Default.Phone,
                 color = com.safelive.app.ui.theme.DangerRed,
-                onClick = { /* TODO: Emergency Contacts */ },
+                onClick = {
+                    context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:112")))
+                },
                 modifier = Modifier.weight(1f)
             )
         }

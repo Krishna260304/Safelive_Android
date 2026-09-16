@@ -26,6 +26,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.safelive.app.data.remote.api.IncidentApi
 import com.safelive.app.data.remote.dto.DashboardDataDto
+import com.safelive.app.data.remote.dto.DailyCountDto
 import com.safelive.app.ui.theme.*
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,6 +40,8 @@ import javax.inject.Inject
 
 data class AnalyticsUiState(
     val data: DashboardDataDto? = null,
+    val trends: List<DailyCountDto> = emptyList(),
+    val days: Int = 14,
     val isLoading: Boolean = false,
     val error: String? = null
 )
@@ -53,15 +56,23 @@ class OfficialAnalyticsViewModel @Inject constructor(
 
     init { loadAnalytics() }
 
-    fun loadAnalytics() {
+    fun loadAnalytics(days: Int = _uiState.value.days) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            _uiState.update { it.copy(isLoading = true, error = null, days = days) }
             try {
                 val response = incidentApi.getDashboardData()
-                if (response.success && response.data != null) {
-                    _uiState.update { it.copy(data = response.data, isLoading = false) }
+                val trendResponse = incidentApi.getAnalyticsTrends(days)
+                if (response.success && response.data != null && trendResponse.success) {
+                    _uiState.update {
+                        it.copy(data = response.data, trends = trendResponse.data.orEmpty(), isLoading = false)
+                    }
                 } else {
-                    _uiState.update { it.copy(error = response.error ?: "Failed to load analytics", isLoading = false) }
+                    _uiState.update {
+                        it.copy(
+                            error = response.error ?: trendResponse.error ?: "Failed to load analytics",
+                            isLoading = false
+                        )
+                    }
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.localizedMessage ?: "Unknown error", isLoading = false) }
@@ -127,6 +138,18 @@ fun OfficialAnalyticsScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(7, 14, 30).forEach { days ->
+                        FilterChip(
+                            selected = uiState.days == days,
+                            onClick = { viewModel.loadAnalytics(days) },
+                            label = { Text("${days}d") }
+                        )
+                    }
+                }
+            }
+
             // ---- Overview Card ----
             item {
                 AnalyticsOverviewCard(data = data)
@@ -136,11 +159,15 @@ fun OfficialAnalyticsScreen(
             item {
                 AnalyticsMetricCard(
                     title = "Resolution Rate",
-                    value = "${(data.resolutionRate * 100).toInt()}%",
+                    value = "${data.resolutionRatePercent.toInt()}%",
                     subtitle = "of all incidents resolved",
                     color = SuccessGreen,
                     icon = Icons.Default.CheckCircle
                 )
+            }
+
+            item {
+                AnalyticsTrendCard(uiState.trends)
             }
 
             // ---- Avg Resolution Time ----
@@ -162,6 +189,12 @@ fun OfficialAnalyticsScreen(
                         items = data.categoryBreakdown,
                         totalValue = data.totalIssues.coerceAtLeast(1)
                     )
+                }
+            }
+
+            if (data.workerProductivity.isNotEmpty()) {
+                item {
+                    WorkerProductivityCard(data.workerProductivity)
                 }
             }
 
@@ -199,6 +232,65 @@ fun OfficialAnalyticsScreen(
                         totalValue = data.totalIssues.coerceAtLeast(1),
                         colorMap = statusColors
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AnalyticsTrendCard(trends: List<DailyCountDto>) {
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("Created vs Resolved Trend", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(12.dp))
+            if (trends.isEmpty()) {
+                Text("No trend data for this period", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                val maxValue = trends.maxOf { maxOf(it.created, it.resolved, it.count) }.coerceAtLeast(1)
+                trends.takeLast(14).forEach { point ->
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
+                        Text(point.date.takeLast(5), modifier = Modifier.width(48.dp), style = MaterialTheme.typography.labelSmall)
+                        Column(modifier = Modifier.weight(1f)) {
+                            LinearProgressIndicator(
+                                progress = { point.created.toFloat() / maxValue },
+                                modifier = Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)),
+                                color = WarningOrange,
+                                trackColor = WarningOrange.copy(alpha = 0.12f)
+                            )
+                            Spacer(Modifier.height(3.dp))
+                            LinearProgressIndicator(
+                                progress = { point.resolved.toFloat() / maxValue },
+                                modifier = Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)),
+                                color = SuccessGreen,
+                                trackColor = SuccessGreen.copy(alpha = 0.12f)
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Text("${point.created}/${point.resolved}", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+                Text("Created / Resolved", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable
+private fun WorkerProductivityCard(workers: List<com.safelive.app.data.remote.dto.WorkerProductivityDto>) {
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("Worker Productivity", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(12.dp))
+            workers.take(8).forEach { worker ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(worker.worker.ifBlank { "Unknown" }, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                    Text("${worker.resolved}/${worker.total}", style = MaterialTheme.typography.labelMedium)
+                    Spacer(Modifier.width(8.dp))
+                    Text("${worker.resolutionRate.toInt()}%", color = SuccessGreen, style = MaterialTheme.typography.labelMedium)
                 }
             }
         }

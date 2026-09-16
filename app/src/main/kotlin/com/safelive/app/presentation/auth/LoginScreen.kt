@@ -98,7 +98,9 @@ fun LoginScreen(
                     modifier = Modifier.padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    if (uiState.loginMode == "local") {
+                    if (uiState.otpChallengeId != null) {
+                        LoginOtpContent(uiState, viewModel)
+                    } else if (uiState.loginMode == "local") {
                         LocalLoginContent(uiState, viewModel, focusManager, navController)
                     } else {
                         OfficialLoginContent(uiState, viewModel, focusManager, navController)
@@ -109,6 +111,38 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
+}
+
+@Composable
+private fun LoginOtpContent(uiState: LoginUiState, viewModel: LoginViewModel) {
+    Text("Verification Code", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+    Spacer(modifier = Modifier.height(8.dp))
+    Text(
+        text = "Enter the one-time code sent to ${uiState.otpChannels.joinToString(" and ").ifBlank { "your registered contact" }}.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = Color.Gray,
+        textAlign = TextAlign.Center
+    )
+    Spacer(modifier = Modifier.height(20.dp))
+    OutlinedTextField(
+        value = uiState.otp,
+        onValueChange = viewModel::onOtpChange,
+        label = { Text("6-digit OTP") },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        modifier = Modifier.fillMaxWidth()
+    )
+    ErrorDisplay(uiState.error)
+    Spacer(modifier = Modifier.height(12.dp))
+    Button(
+        onClick = viewModel::verifyLoginOtp,
+        enabled = !uiState.isLoading && uiState.otp.length == 6,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        if (uiState.isLoading) CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White)
+        else Text("Verify & Continue", color = Color.White)
+    }
+    TextButton(onClick = viewModel::cancelOtp) { Text("Back to Login") }
 }
 
 @Composable

@@ -40,6 +40,7 @@ class NotificationViewModel @Inject constructor(
                 when (result) {
                     is Resource.Success -> _uiState.update { it.copy(notifications = result.data, isLoading = false) }
                     is Resource.Error -> _uiState.update { it.copy(error = result.message, isLoading = false) }
+                    is Resource.OtpRequired -> Unit
                     Resource.Loading -> _uiState.update { it.copy(isLoading = true) }
                 }
             }

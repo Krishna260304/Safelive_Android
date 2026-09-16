@@ -75,6 +75,7 @@ class ChatViewModel @Inject constructor(
                     _uiState.update { it.copy(messages = updatedMessages) }
                 }
                 is Resource.Error -> _uiState.update { it.copy(error = result.message) }
+                is Resource.OtpRequired -> Unit
                 Resource.Loading -> Unit
             }
         }
@@ -87,6 +88,7 @@ class ChatViewModel @Inject constructor(
                 when (result) {
                     is Resource.Success -> _uiState.update { it.copy(messages = result.data, isLoading = false) }
                     is Resource.Error -> _uiState.update { it.copy(error = result.message, isLoading = false) }
+                    is Resource.OtpRequired -> Unit
                     Resource.Loading -> Unit
                 }
             }

@@ -8,22 +8,45 @@ import java.util.concurrent.TimeUnit
 
 object DateUtils {
 
-    private val ISO_FORMAT = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
-        timeZone = TimeZone.getTimeZone("UTC")
-    }
+    private val UTC = TimeZone.getTimeZone("UTC")
+    private val ISO_FORMATS = listOf(
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.US).apply { timeZone = UTC },
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).apply { timeZone = UTC },
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSX", Locale.US).apply { timeZone = UTC },
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssX", Locale.US).apply { timeZone = UTC },
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.US).apply { timeZone = UTC },
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply { timeZone = UTC },
+        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).apply { timeZone = UTC }
+    ).onEach { it.isLenient = false }
 
     private val DISPLAY_FORMAT = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.US)
     private val DATE_ONLY_FORMAT = SimpleDateFormat("dd MMM yyyy", Locale.US)
     private val TIME_ONLY_FORMAT = SimpleDateFormat("hh:mm a", Locale.US)
     private val EXACT_FORMAT = SimpleDateFormat("dd/MM/yyyy, h:mm:ss a", Locale.US)
+    private val ISO_OUTPUT_FORMAT = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
+        timeZone = UTC
+        isLenient = false
+    }
 
     fun parseIso(isoString: String?): Date? {
-        if (isoString.isNullOrBlank()) return null
-        return try {
-            ISO_FORMAT.parse(isoString)
-        } catch (e: Exception) {
-            null
+        val raw = isoString?.trim().orEmpty()
+        if (raw.isBlank()) return null
+
+        val normalized = raw
+            .replace(Regex("\\.(\\d{3})\\d+"), ".$1")
+            .replace("Z", "+00:00")
+
+        for (candidate in listOf(raw, normalized)) {
+            for (format in ISO_FORMATS) {
+                try {
+                    val parsed = format.parse(candidate)
+                    if (parsed != null) return parsed
+                } catch (_: Exception) {
+                    // Try the next parser shape.
+                }
+            }
         }
+        return null
     }
 
     fun formatDisplay(isoString: String?): String {
@@ -60,7 +83,7 @@ object DateUtils {
         }
     }
 
-    fun toIsoString(date: Date): String = ISO_FORMAT.format(date)
+    fun toIsoString(date: Date): String = ISO_OUTPUT_FORMAT.format(date)
 
-    fun currentIsoString(): String = ISO_FORMAT.format(Date())
+    fun currentIsoString(): String = ISO_OUTPUT_FORMAT.format(Date())
 }

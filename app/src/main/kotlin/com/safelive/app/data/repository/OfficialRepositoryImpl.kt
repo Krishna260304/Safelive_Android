@@ -177,25 +177,7 @@ class OfficialRepositoryImpl @Inject constructor(
         try {
             val response = ticketApi.getTickets()
             if (response.success && response.data != null) {
-                val actionableStatuses = setOf(
-                    "open",
-                    "pending",
-                    "verified",
-                    "assigned",
-                    "in_progress",
-                    "inspection pending",
-                    "work assigned",
-                    "awaiting verification",
-                    "reopened"
-                )
-                val tickets = response.data
-                    .map { it.toDomain() }
-                    .filter { ticket ->
-                        val normalizedStatus = ticket.status.lowercase().replace('_', ' ')
-                        normalizedStatus !in setOf("resolved", "closed", "rejected") &&
-                            (normalizedStatus in actionableStatuses || ticket.assignedTo.isNullOrBlank().not() || ticket.workerId != null || ticket.workerIds.orEmpty().isNotEmpty())
-                    }
-                emit(Resource.Success(tickets))
+                emit(Resource.Success(response.data.map { it.toDomain() }))
             } else {
                 emit(Resource.Error(response.error ?: "Failed to load ticket queue"))
             }

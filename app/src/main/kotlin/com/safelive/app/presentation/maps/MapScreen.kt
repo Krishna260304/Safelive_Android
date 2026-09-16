@@ -3,8 +3,10 @@ package com.safelive.app.presentation.maps
 import android.annotation.SuppressLint
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
+import android.webkit.ConsoleMessage
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.webkit.WebSettings
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -54,19 +56,18 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.google.accompanist.permissions.isGranted
-import com.google.accompanist.permissions.rememberPermissionState
 import com.google.gson.Gson
 import com.safelive.app.domain.model.Incident
+import com.safelive.app.domain.model.Ticket
 import com.safelive.app.navigation.Screen
 import com.safelive.app.presentation.dashboard.StatusChip
 import com.safelive.app.ui.theme.DangerRed
 import com.safelive.app.ui.theme.SuccessGreen
 import com.safelive.app.ui.theme.WarningOrange
 import org.json.JSONObject
+import timber.log.Timber
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun MapScreen(
@@ -74,20 +75,15 @@ fun MapScreen(
     viewModel: MapViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val locationPermission = rememberPermissionState(android.Manifest.permission.ACCESS_FINE_LOCATION)
     val gson = remember { Gson() }
     var webView by remember { mutableStateOf<WebView?>(null) }
 
-    val defaultLat = 28.6139
-    val defaultLng = 77.2090
+    val defaultLat = 20.5937
+    val defaultLng = 78.9629
     val currentLat = uiState.currentLocation?.latitude ?: defaultLat
     val currentLng = uiState.currentLocation?.longitude ?: defaultLng
 
-    LaunchedEffect(Unit) {
-        locationPermission.launchPermissionRequest()
-    }
-
-    val incidentsJson = remember(uiState.incidents) {
+    val incidentsJson = remember(uiState.incidents, uiState.tickets) {
         gson.toJson(
             uiState.incidents.map {
                 mapOf(
@@ -97,15 +93,27 @@ fun MapScreen(
                     "lng" to it.longitude,
                     "priority" to it.priority
                 )
+            } + uiState.tickets.map {
+                mapOf(
+                    "id" to "ticket:${it.id}",
+                    "title" to it.title,
+                    "description" to it.description,
+                    "lat" to it.latitude,
+                    "lng" to it.longitude,
+                    "priority" to it.priority,
+                    "type" to "ticket"
+                )
             }
         )
     }
 
-    val mapHtml = remember(currentLat, currentLng, incidentsJson) {
-        buildMapHtml(currentLat, currentLng, incidentsJson)
+    val heatmapJson = remember(uiState.heatmap) { gson.toJson(uiState.heatmap.map { mapOf("lat" to it.latitude, "lng" to it.longitude, "weight" to it.weight) }) }
+
+    val mapHtml = remember(currentLat, currentLng, incidentsJson, heatmapJson) {
+        buildMapHtml(currentLat, currentLng, incidentsJson, heatmapJson)
     }
 
-    LaunchedEffect(incidentsJson, currentLat, currentLng, webView) {
+    LaunchedEffect(incidentsJson, heatmapJson, currentLat, currentLng, webView) {
         webView?.let { map ->
             map.evaluateJavascript(
                 "if (typeof updateIncidents === 'function') { updateIncidents(${JSONObject.quote(incidentsJson)}); }",
@@ -113,6 +121,10 @@ fun MapScreen(
             )
             map.evaluateJavascript(
                 "if (typeof updateCenter === 'function') { updateCenter($currentLat, $currentLng); }",
+                null
+            )
+            map.evaluateJavascript(
+                "if (typeof updateHeatmap === 'function') { updateHeatmap(${JSONObject.quote(heatmapJson)}); }",
                 null
             )
         }
@@ -142,9 +154,7 @@ fun MapScreen(
                 },
                 actions = {
                     IconButton(onClick = {
-                        if (locationPermission.status.isGranted) {
-                            viewModel.loadIncidentsNearLocation(defaultLat, defaultLng)
-                        }
+                        viewModel.loadIncidents()
                     }) {
                         Icon(Icons.Default.Refresh, null, tint = Color.White)
                     }
@@ -166,13 +176,40 @@ fun MapScreen(
                         settings.domStorageEnabled = true
                         settings.loadWithOverviewMode = true
                         settings.useWideViewPort = true
-                        webViewClient = WebViewClient()
-                        webChromeClient = WebChromeClient()
+                        settings.cacheMode = WebSettings.LOAD_DEFAULT
+                        settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+                        webViewClient = object : WebViewClient() {
+                            override fun onPageFinished(view: WebView, url: String) {
+                                view.evaluateJavascript(
+                                    "if (typeof updateIncidents === 'function') { updateIncidents(${JSONObject.quote(incidentsJson)}); }",
+                                    null
+                                )
+                                view.evaluateJavascript(
+                                    "if (typeof updateCenter === 'function') { updateCenter($currentLat, $currentLng); }",
+                                    null
+                                )
+                                view.evaluateJavascript(
+                                    "if (typeof updateHeatmap === 'function') { updateHeatmap(${JSONObject.quote(heatmapJson)}); }",
+                                    null
+                                )
+                            }
+                        }
+                        webChromeClient = object : WebChromeClient() {
+                            override fun onConsoleMessage(message: ConsoleMessage): Boolean {
+                                Timber.w("Leaflet: ${message.message()} (${message.sourceId()}:${message.lineNumber()})")
+                                return true
+                            }
+                        }
                         addJavascriptInterface(object {
                             @JavascriptInterface
                             fun onMarkerClick(id: String) {
-                                val incident = viewModel.uiState.value.incidents.find { it.id == id }
-                                incident?.let(viewModel::selectIncident)
+                                if (id.startsWith("ticket:")) {
+                                    val ticket = viewModel.uiState.value.tickets.find { it.id == id.removePrefix("ticket:") }
+                                    ticket?.let(viewModel::selectTicket)
+                                } else {
+                                    val incident = viewModel.uiState.value.incidents.find { it.id == id }
+                                    incident?.let(viewModel::selectIncident)
+                                }
                             }
                         }, "Android")
                         loadDataWithBaseURL("https://app.safelive.com/", mapHtml, "text/html", "UTF-8", null)
@@ -191,19 +228,19 @@ fun MapScreen(
             }
 
             AnimatedVisibility(
-                visible = uiState.selectedIncident != null,
+                visible = uiState.selectedIncident != null || uiState.selectedTicket != null,
                 enter = slideInVertically(initialOffsetY = { it }),
                 exit = slideOutVertically(targetOffsetY = { it }),
                 modifier = Modifier.align(Alignment.BottomCenter)
             ) {
                 uiState.selectedIncident?.let { incident ->
-                    IncidentMapPopup(
-                        incident = incident,
-                        onDismiss = { viewModel.selectIncident(null) },
-                        onViewDetail = {
-                            navController.navigate(Screen.IncidentDetail.createRoute(incident.id))
-                        }
-                    )
+                    IncidentMapPopup(incident = incident, onDismiss = { viewModel.selectIncident(null) }, onViewDetail = {
+                        navController.navigate(Screen.IncidentDetail.createRoute(incident.id))
+                    })
+                } ?: uiState.selectedTicket?.let { ticket ->
+                    TicketMapPopup(ticket = ticket, onDismiss = { viewModel.selectTicket(null) }, onViewDetail = {
+                        navController.navigate(Screen.TicketDetail.createRoute(ticket.id))
+                    })
                 }
             }
 
@@ -229,14 +266,15 @@ fun MapScreen(
     }
 }
 
-private fun buildMapHtml(currentLat: Double, currentLng: Double, initialIncidentsJson: String): String {
+private fun buildMapHtml(currentLat: Double, currentLng: Double, initialIncidentsJson: String, initialHeatmapJson: String): String {
     return """
         <!DOCTYPE html>
         <html>
         <head>
             <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-            <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-            <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+            <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
             <style>
                 body { padding: 0; margin: 0; }
                 html, body, #map { height: 100%; width: 100vw; }
@@ -245,13 +283,14 @@ private fun buildMapHtml(currentLat: Double, currentLng: Double, initialIncident
         <body>
             <div id="map"></div>
             <script>
-                var map = L.map('map').setView([$currentLat, $currentLng], 13);
+                var map = L.map('map', { zoomControl: true }).setView([$currentLat, $currentLng], 5);
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     maxZoom: 19,
                     attribution: 'Â© OpenStreetMap'
                 }).addTo(map);
 
                 var markerLayer = L.layerGroup().addTo(map);
+                var heatLayer = null;
                 
                 function getColor(priority) {
                     if (!priority) return 'green';
@@ -266,8 +305,9 @@ private fun buildMapHtml(currentLat: Double, currentLng: Double, initialIncident
                     try {
                         var incidents = JSON.parse(jsonString);
                         markerLayer.clearLayers();
+                        var bounds = [];
                         incidents.forEach(function(inc) {
-                            if (inc.lat && inc.lng) {
+                            if (typeof inc.lat === 'number' && typeof inc.lng === 'number') {
                                 var markerHtml = `<div style="background-color: ${'$'}{getColor(inc.priority)}; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white;"></div>`;
                                 var icon = L.divIcon({
                                     html: markerHtml,
@@ -283,8 +323,12 @@ private fun buildMapHtml(currentLat: Double, currentLng: Double, initialIncident
                                     }
                                 });
                                 markerLayer.addLayer(marker);
+                                bounds.push([inc.lat, inc.lng]);
                             }
                         });
+                        if (bounds.length > 0) {
+                            map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
+                        }
                     } catch (e) {
                         console.error("Error parsing incidents", e);
                     }
@@ -294,7 +338,23 @@ private fun buildMapHtml(currentLat: Double, currentLng: Double, initialIncident
                     map.setView([lat, lng], map.getZoom());
                 }
 
+                function updateHeatmap(jsonString) {
+                    try {
+                        if (heatLayer) {
+                            map.removeLayer(heatLayer);
+                            heatLayer = null;
+                        }
+                        var points = JSON.parse(jsonString || '[]');
+                        if (points.length > 0 && L.heatLayer) {
+                            heatLayer = L.heatLayer(points.map(function(p) { return [p.lat, p.lng, p.weight || 1]; }), {
+                                radius: 25, blur: 15, maxZoom: 17
+                            }).addTo(map);
+                        }
+                    } catch (e) { console.error('Error parsing heatmap', e); }
+                }
+
                 updateIncidents(${JSONObject.quote(initialIncidentsJson)});
+                updateHeatmap(${JSONObject.quote(initialHeatmapJson)});
             </script>
         </body>
         </html>
@@ -365,6 +425,46 @@ private fun IncidentMapPopup(
                     )
                 }
             }
+            Spacer(modifier = Modifier.height(12.dp))
+            Button(
+                onClick = onViewDetail,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("View Details", color = Color.White)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TicketMapPopup(
+    ticket: Ticket,
+    onDismiss: () -> Unit,
+    onViewDetail: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(8.dp)
+    ) {
+        androidx.compose.foundation.layout.Column(modifier = Modifier.padding(16.dp)) {
+            androidx.compose.foundation.layout.Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                androidx.compose.foundation.layout.Column(modifier = Modifier.weight(1f)) {
+                    Text(ticket.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Text("Ticket ${ticket.ticketId.orEmpty()}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                IconButton(onClick = onDismiss, modifier = Modifier.size(24.dp)) {
+                    Icon(Icons.Default.Close, null, modifier = Modifier.size(16.dp))
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(ticket.status, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(12.dp))
             Button(
                 onClick = onViewDetail,

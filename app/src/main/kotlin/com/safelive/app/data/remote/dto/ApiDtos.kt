@@ -12,8 +12,13 @@ data class ApiResponse<T>(
 )
 
 data class LoginResponse(
-    val token: String,
-    val user: UserDto
+    val token: String? = null,
+    val user: UserDto? = null,
+    val requiresOtp: Boolean = false,
+    val challengeId: String? = null,
+    val channels: List<String>? = null,
+    val maskedEmail: String? = null,
+    val maskedPhone: String? = null
 )
 
 data class RegisterResponse(
@@ -177,6 +182,8 @@ data class TicketDto(
     val lastWorkerUpdateAt: String?,
     val reopenedSupervisorId: String?,
     val reopenedSupervisorName: String?,
+    val reopenedBy: ReopenedByDto?,
+    val reopenWarning: ReopenWarningDto?,
     val resolvedById: String?,
     val resolvedByName: String?,
     val resolvedAt: String?,
@@ -224,12 +231,40 @@ data class TicketDto(
         lastWorkerUpdateAt = lastWorkerUpdateAt,
         reopenedSupervisorId = reopenedSupervisorId,
         reopenedSupervisorName = reopenedSupervisorName,
+        reopenedBy = reopenedBy?.toDomain(),
+        reopenWarning = reopenWarning?.toDomain(),
         resolvedById = resolvedById,
         resolvedByName = resolvedByName,
         resolvedAt = resolvedAt,
         verifiedAt = verifiedAt,
         createdAt = createdAt,
         updatedAt = updatedAt
+    )
+}
+
+data class ReopenedByDto(
+    val id: String? = null,
+    val name: String? = null,
+    val timestamp: String? = null
+) {
+    fun toDomain(): TicketReopenedBy = TicketReopenedBy(
+        id = id,
+        name = name,
+        timestamp = timestamp
+    )
+}
+
+data class ReopenWarningDto(
+    val message: String,
+    val issuedAt: String,
+    val supervisorName: String? = null,
+    val departmentName: String? = null
+) {
+    fun toDomain(): TicketReopenWarning = TicketReopenWarning(
+        message = message,
+        issuedAt = issuedAt,
+        supervisorName = supervisorName,
+        departmentName = departmentName
     )
 }
 
@@ -345,22 +380,72 @@ data class NotificationDto(
 
 /** Typed analytics data from GET analytics/dashboard */
 data class DashboardDataDto(
-    val totalIssues: Int = 0,
-    val resolvedIssues: Int = 0,
-    val pendingIssues: Int = 0,
-    val inProgressIssues: Int = 0,
-    val openIssues: Int = 0,
-    val resolutionRate: Double = 0.0,
+    val incidents: AnalyticsStatusDto = AnalyticsStatusDto(),
+    val tickets: AnalyticsStatusDto = AnalyticsStatusDto(),
+    val cityCleanlinessScore: Double = 0.0,
+    val safetyIndex: Double = 0.0,
+    val byCategory: List<AnalyticsCategoryDto> = emptyList(),
+    val workerProductivity: List<WorkerProductivityDto> = emptyList(),
     val avgResolutionHours: Double = 0.0,
-    val categoryBreakdown: Map<String, Int> = emptyMap(),
-    val priorityBreakdown: Map<String, Int> = emptyMap(),
-    val statusBreakdown: Map<String, Int> = emptyMap(),
     val recentTrend: List<DailyCountDto> = emptyList()
+) {
+    // Compatibility accessors keep the existing summary components small while
+    // decoding the nested shape returned by the webapp API.
+    val totalIssues: Int get() = incidents.total
+    val resolvedIssues: Int get() = incidents.resolved
+    val pendingIssues: Int get() = incidents.pending
+    val inProgressIssues: Int get() = incidents.inProgress
+    val openIssues: Int get() = incidents.open
+    val resolutionRate: Double get() = incidents.resolutionRate
+    val resolutionRatePercent: Double get() = if (resolutionRate <= 1.0) resolutionRate * 100 else resolutionRate
+    val categoryBreakdown: Map<String, Int> get() = byCategory.associate { it.category to it.count }
+    val priorityBreakdown: Map<String, Int> get() = emptyMap()
+    val statusBreakdown: Map<String, Int>
+        get() = mapOf(
+            "open" to incidents.open,
+            "pending" to incidents.pending,
+            "in_progress" to incidents.inProgress,
+            "resolved" to incidents.resolved
+        ).filterValues { it > 0 }
+}
+
+data class AnalyticsStatusDto(
+    val total: Int = 0,
+    val open: Int = 0,
+    val pending: Int = 0,
+    val inProgress: Int = 0,
+    val resolved: Int = 0,
+    val resolutionRate: Double = 0.0
+)
+
+data class AnalyticsCategoryDto(
+    val category: String = "",
+    val count: Int = 0
+)
+
+data class WorkerProductivityDto(
+    val worker: String = "",
+    val total: Int = 0,
+    val resolved: Int = 0,
+    val open: Int = 0,
+    val pending: Int = 0,
+    val inProgress: Int = 0,
+    val resolutionRate: Double = 0.0
 )
 
 data class DailyCountDto(
     val date: String = "",
-    val count: Int = 0
+    val count: Int = 0,
+    val created: Int = 0,
+    val resolved: Int = 0
+)
+
+data class HeatmapPointDto(
+    val lat: Double,
+    val lng: Double,
+    val weight: Double? = null,
+    val category: String? = null,
+    val status: String? = null
 )
 
 /** Request body for FCM token registration */

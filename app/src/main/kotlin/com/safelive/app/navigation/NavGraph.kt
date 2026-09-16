@@ -35,11 +35,12 @@ import com.safelive.app.presentation.splash.SplashScreen
 @Composable
 fun SafeLiveNavGraph(
     navController: NavHostController = rememberNavController(),
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    startDestination: String = Screen.Splash.route
 ) {
     NavHost(
         navController = navController,
-        startDestination = Screen.Splash.route,
+        startDestination = startDestination,
         modifier = modifier,
         enterTransition = {
             slideInHorizontally(
@@ -96,14 +97,10 @@ fun SafeLiveNavGraph(
 
         composable(
             route = Screen.ResetPassword.route,
-            arguments = listOf(
-                navArgument("email") { type = NavType.StringType },
-                navArgument("otp") { type = NavType.StringType }
-            )
+            arguments = listOf(navArgument("token") { type = NavType.StringType; defaultValue = "" })
         ) { backStackEntry ->
-            val email = backStackEntry.arguments?.getString("email") ?: ""
-            val otp = backStackEntry.arguments?.getString("otp") ?: ""
-            ResetPasswordScreen(navController = navController, email = email, otp = otp)
+            val token = backStackEntry.arguments?.getString("token") ?: ""
+            ResetPasswordScreen(navController = navController, token = token)
         }
 
         composable(Screen.CitizenDashboard.route) {
@@ -188,6 +185,10 @@ fun SafeLiveNavGraph(
 
         composable(Screen.OfficialAnalytics.route) {
             OfficialAnalyticsScreen(navController = navController)
+        }
+
+        composable(Screen.OfficialReports.route) {
+            IncidentListScreen(navController = navController, officialMode = true)
         }
     }
 }

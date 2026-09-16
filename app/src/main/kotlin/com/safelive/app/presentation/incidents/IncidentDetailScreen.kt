@@ -31,6 +31,7 @@ import com.safelive.app.navigation.Screen
 import com.safelive.app.presentation.dashboard.StatusChip
 import com.safelive.app.ui.theme.*
 import com.safelive.app.utils.DateUtils
+import com.safelive.app.utils.ImageUrlUtils
 import com.safelive.app.utils.capitalizeWords
 import androidx.compose.material.icons.automirrored.filled.Assignment
 
@@ -43,9 +44,33 @@ fun IncidentDetailScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showLogbook by remember { mutableStateOf(false) }
+    var showEdit by remember { mutableStateOf(false) }
+    var editTitle by remember { mutableStateOf("") }
+    var editDescription by remember { mutableStateOf("") }
+    var editCategory by remember { mutableStateOf("") }
+    var editLocation by remember { mutableStateOf("") }
+    var editSaveRequested by remember { mutableStateOf(false) }
 
     LaunchedEffect(incidentId) {
         viewModel.loadIncident(incidentId)
+    }
+
+    LaunchedEffect(showEdit) {
+        if (showEdit) {
+            uiState.incident?.let { incident ->
+                editTitle = incident.title
+                editDescription = incident.description.orEmpty()
+                editCategory = incident.category
+                editLocation = incident.location
+            }
+        }
+    }
+
+    LaunchedEffect(uiState.isUpdating, uiState.error, uiState.incident?.updatedAt) {
+        if (editSaveRequested && !uiState.isUpdating && uiState.error == null) {
+            showEdit = false
+            editSaveRequested = false
+        }
     }
 
     if (showLogbook && uiState.incident != null) {
@@ -54,6 +79,26 @@ fun IncidentDetailScreen(
             location = uiState.incident!!.location,
             entries = uiState.logbook,
             onDismiss = { showLogbook = false }
+        )
+    }
+
+    if (showEdit && uiState.incident != null) {
+        EditIncidentDialog(
+            title = editTitle,
+            description = editDescription,
+            category = editCategory,
+            location = editLocation,
+            isSaving = uiState.isUpdating,
+            error = uiState.error,
+            onTitleChange = { editTitle = it },
+            onDescriptionChange = { editDescription = it },
+            onCategoryChange = { editCategory = it },
+            onLocationChange = { editLocation = it },
+            onDismiss = { if (!uiState.isUpdating) showEdit = false },
+            onSave = {
+                editSaveRequested = true
+                viewModel.updateIncident(editTitle, editDescription, editCategory, editLocation)
+            }
         )
     }
 
@@ -75,8 +120,13 @@ fun IncidentDetailScreen(
                 },
                 actions = {
                     uiState.incident?.let { incident ->
+                        if (viewModel.canEditIncident(incident)) {
+                            IconButton(onClick = { showEdit = true }) {
+                                Icon(Icons.Default.Edit, "Edit incident", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
                         IconButton(onClick = {
-                            navController.navigate(Screen.Chat.createRoute("incident_${incident.id}"))
+                            navController.navigate(Screen.Chat.createRoute(incident.id))
                         }) {
                             Icon(Icons.Default.Chat, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
@@ -123,8 +173,53 @@ fun IncidentDetailScreen(
 }
 
 @Composable
+private fun EditIncidentDialog(
+    title: String,
+    description: String,
+    category: String,
+    location: String,
+    isSaving: Boolean,
+    error: String?,
+    onTitleChange: (String) -> Unit,
+    onDescriptionChange: (String) -> Unit,
+    onCategoryChange: (String) -> Unit,
+    onLocationChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onSave: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Incident") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(title, onTitleChange, label = { Text("Title") }, singleLine = true)
+                OutlinedTextField(description, onDescriptionChange, label = { Text("Description") }, minLines = 3, maxLines = 5)
+                OutlinedTextField(category, onCategoryChange, label = { Text("Category") }, singleLine = true)
+                OutlinedTextField(location, onLocationChange, label = { Text("Location") }, singleLine = true)
+                if (!error.isNullOrBlank()) {
+                    Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = onSave, enabled = !isSaving) {
+                if (isSaving) CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White)
+                else Text("Save Changes")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !isSaving) { Text("Cancel") } }
+    )
+}
+
+@Composable
 private fun IncidentDetailContent(incident: Incident, onLogbookClick: () -> Unit, modifier: Modifier = Modifier) {
-    val images = incident.images.orEmpty()
+    val images = remember(incident.images, incident.imageUrls, incident.imageUrl) {
+        buildList {
+            incident.imageUrls.orEmpty().forEach { ImageUrlUtils.normalize(it)?.let(::add) }
+            ImageUrlUtils.normalize(incident.imageUrl)?.let(::add)
+            incident.images.orEmpty().forEach { ImageUrlUtils.normalize(it)?.let(::add) }
+        }.distinct()
+    }
     val priority = incident.priority ?: "Medium"
 
     LazyColumn(
@@ -239,7 +334,7 @@ private fun IncidentDetailContent(incident: Incident, onLogbookClick: () -> Unit
                     Text("Photos", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                     Spacer(modifier = Modifier.height(12.dp))
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        items(images) { imageUrl ->
+                        items(images.mapNotNull(ImageUrlUtils::normalize)) { imageUrl ->
                             AsyncImage(
                                 model = imageUrl,
                                 contentDescription = null,

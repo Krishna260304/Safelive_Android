@@ -38,4 +38,10 @@ interface IncidentApi {
 
     @GET("analytics/dashboard")
     suspend fun getDashboardData(): ApiResponse<DashboardDataDto>
+
+    @GET("analytics/trends")
+    suspend fun getAnalyticsTrends(@Query("days") days: Int = 14): ApiResponse<List<DailyCountDto>>
+
+    @GET("analytics/heatmap")
+    suspend fun getHeatmap(): ApiResponse<List<HeatmapPointDto>>
 }

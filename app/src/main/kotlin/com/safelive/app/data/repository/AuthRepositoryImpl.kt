@@ -14,14 +14,32 @@ class AuthRepositoryImpl @Inject constructor(
     private val dataStore: UserPreferencesDataStore
 ) : AuthRepository {
 
-    override suspend fun login(email: String, password: String): Resource<User> {
+    override suspend fun login(
+        identifier: String,
+        password: String,
+        expectedUserType: String?,
+        expectedOfficialRole: String?
+    ): Resource<User> {
         return try {
-            val request = mapOf("email" to email, "password" to password)
+            val request = mutableMapOf(
+                "password" to password
+            )
+            if (identifier.contains("@")) {
+                request["email"] = identifier
+            } else {
+                request["phone"] = identifier
+            }
+            expectedUserType?.takeIf { it.isNotBlank() }?.let { request["expectedUserType"] = it }
+            expectedOfficialRole?.takeIf { it.isNotBlank() }?.let { request["expectedOfficialRole"] = it }
             val response = authApi.login(request)
-            if (response.success && response.data != null) {
-                dataStore.saveAuthToken(response.data.token)
-                dataStore.saveUserProfile(response.data.user.toDomain())
-                Resource.Success(response.data.user.toDomain())
+            val payload = response.data
+            if (response.success && payload?.requiresOtp == true && !payload.challengeId.isNullOrBlank()) {
+                Resource.OtpRequired(payload.challengeId, payload.channels.orEmpty())
+            } else if (response.success && !payload?.token.isNullOrBlank() && payload.user != null) {
+                val user = payload.user.toDomain()
+                dataStore.saveAuthToken(payload.token!!)
+                dataStore.saveUserProfile(user)
+                Resource.Success(user)
             } else {
                 Resource.Error(response.error ?: "Login failed")
             }
@@ -72,11 +90,14 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun forgotPassword(email: String): Resource<String> {
+    override suspend fun forgotPassword(email: String?, phone: String?): Resource<String> {
         return try {
-            val response = authApi.forgotPassword(mapOf("email" to email))
+            val request = mutableMapOf<String, String>()
+            email?.trim()?.takeIf { it.isNotBlank() }?.let { request["email"] = it }
+            phone?.trim()?.takeIf { it.isNotBlank() }?.let { request["phone"] = it }
+            val response = authApi.forgotPassword(request)
             if (response.success) {
-                Resource.Success("OTP sent to email")
+                Resource.Success(response.data?.get("message") ?: "Password reset link sent")
             } else {
                 Resource.Error(response.error ?: "Failed to send OTP")
             }
@@ -85,12 +106,15 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun verifyOtp(email: String, otp: String): Resource<String> {
+    override suspend fun verifyOtp(challengeId: String, otp: String): Resource<User> {
         return try {
-            val response = authApi.verifyOtp(mapOf("email" to email, "otp" to otp))
-            if (response.success && response.data != null) {
-                dataStore.saveAuthToken(response.data.token)
-                Resource.Success("OTP verified successfully")
+            val response = authApi.verifyOtp(mapOf("challengeId" to challengeId, "otp" to otp))
+            if (response.success && !response.data?.token.isNullOrBlank() && response.data?.user != null) {
+                val payload = response.data!!
+                val user = payload.user!!.toDomain()
+                dataStore.saveAuthToken(payload.token!!)
+                dataStore.saveUserProfile(user)
+                Resource.Success(user)
             } else {
                 Resource.Error(response.error ?: "OTP verification failed")
             }
@@ -99,9 +123,9 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun resetPassword(email: String, otp: String, newPassword: String): Resource<String> {
+    override suspend fun resetPassword(token: String, newPassword: String): Resource<String> {
         return try {
-            val response = authApi.resetPassword(mapOf("email" to email, "otp" to otp, "newPassword" to newPassword))
+            val response = authApi.resetPassword(mapOf("token" to token, "password" to newPassword))
             if (response.success) {
                 Resource.Success("Password reset successfully")
             } else {

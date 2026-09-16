@@ -70,8 +70,8 @@ fun AssignedIncidentsScreen(
                 item {
                     EmptyStateCard(
                         icon = "✅",
-                        title = "No assigned incidents",
-                        message = "You have no incidents currently assigned to you"
+                        title = "No tickets found",
+                        message = "There are no tickets available for your account right now"
                     )
                 }
             } else {

@@ -61,6 +61,7 @@ sealed class BottomNavItem(val title: String, val icon: ImageVector, val route: 
 
 @Composable
 fun MainAppScreen(
+    initialRoute: String? = null,
     viewModel: MainAppViewModel = hiltViewModel()
 ) {
     val navController = rememberNavController()
@@ -133,7 +134,8 @@ fun MainAppScreen(
         ) {
             SafeLiveNavGraph(
                 navController = navController,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                startDestination = initialRoute ?: Screen.Splash.route
             )
 
             WarningPopupHost(

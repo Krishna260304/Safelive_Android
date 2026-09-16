@@ -15,7 +15,7 @@ data class User(
     val profilePictureUrl: String? = null,
     val twoFactorEnabled: Boolean = false
 ) {
-    val isCitizen: Boolean get() = userType.lowercase() == "local"
+    val isCitizen: Boolean get() = userType.lowercase() in setOf("local", "citizen")
     val isOfficial: Boolean get() = userType.lowercase() == "official"
     val displayRole: String
         get() = if (userType.equals("official", ignoreCase = true) && !officialRole.isNullOrBlank()) {
@@ -61,6 +61,19 @@ data class Incident(
     val workerIds: List<String>?
 )
 
+data class TicketReopenedBy(
+    val id: String? = null,
+    val name: String? = null,
+    val timestamp: String? = null
+)
+
+data class TicketReopenWarning(
+    val message: String,
+    val issuedAt: String,
+    val supervisorName: String? = null,
+    val departmentName: String? = null
+)
+
 data class Ticket(
     val id: String,
     val ticketId: String?,
@@ -101,6 +114,8 @@ data class Ticket(
     val lastWorkerUpdateAt: String?,
     val reopenedSupervisorId: String?,
     val reopenedSupervisorName: String?,
+    val reopenedBy: TicketReopenedBy?,
+    val reopenWarning: TicketReopenWarning?,
     val resolvedById: String?,
     val resolvedByName: String?,
     val resolvedAt: String?,

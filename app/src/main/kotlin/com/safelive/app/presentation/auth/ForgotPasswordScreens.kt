@@ -31,12 +31,6 @@ fun ForgotPasswordScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    LaunchedEffect(uiState.isSuccess) {
-        if (uiState.isSuccess) {
-            navController.navigate(Screen.OtpVerification.createRoute(uiState.email))
-        }
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -67,23 +61,59 @@ fun ForgotPasswordScreen(
             Text("Forgot Password?", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                "Enter your registered email address and we'll send you an OTP to reset your password",
+                "Enter your registered email or phone number and we'll send you a password reset link",
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(32.dp))
 
-            OutlinedTextField(
-                value = uiState.email,
-                onValueChange = viewModel::onEmailChange,
-                label = { Text("Email Address") },
-                leadingIcon = { Icon(Icons.Default.Email, null) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = uiState.method == "email",
+                    onClick = { viewModel.onMethodChange("email") },
+                    label = { Text("Email") }
+                )
+                FilterChip(
+                    selected = uiState.method == "phone",
+                    onClick = { viewModel.onMethodChange("phone") },
+                    label = { Text("Phone") }
+                )
+            }
+
+            if (uiState.method == "email") {
+                OutlinedTextField(
+                    value = uiState.email,
+                    onValueChange = viewModel::onEmailChange,
+                    label = { Text("Email Address") },
+                    leadingIcon = { Icon(Icons.Default.Email, null) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+            } else {
+                OutlinedTextField(
+                    value = uiState.phone,
+                    onValueChange = viewModel::onPhoneChange,
+                    label = { Text("Phone Number") },
+                    leadingIcon = { Icon(Icons.Default.Phone, null) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+            }
+
+            if (uiState.isSuccess) {
+                Text(
+                    uiState.message ?: "Reset link sent. Check your email for the link.",
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center
+                )
+                TextButton(onClick = { navController.navigate(Screen.Login.route) }) { Text("Back to Login") }
+            }
 
             AnimatedVisibility(visible = uiState.error != null) {
                 Spacer(modifier = Modifier.height(12.dp))
@@ -108,7 +138,7 @@ fun ForgotPasswordScreen(
                 } else {
                     Icon(Icons.Default.Send, null, tint = Color.White)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Send OTP", color = Color.White)
+                    Text("Send Reset Link", color = Color.White)
                 }
             }
         }
@@ -206,8 +236,7 @@ fun OtpVerificationScreen(
 @Composable
 fun ResetPasswordScreen(
     navController: NavController,
-    email: String,
-    otp: String,
+    token: String,
     viewModel: ResetPasswordViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -215,7 +244,7 @@ fun ResetPasswordScreen(
     LaunchedEffect(uiState.isSuccess) {
         if (uiState.isSuccess) {
             navController.navigate(Screen.Login.route) {
-                popUpTo(Screen.Login.route) { inclusive = true }
+                popUpTo(Screen.ResetPassword.route) { inclusive = true }
             }
         }
     }
@@ -295,7 +324,7 @@ fun ResetPasswordScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             Button(
-                onClick = { viewModel.resetPassword(email, otp) },
+                onClick = { viewModel.resetPassword(token, "") },
                 enabled = !uiState.isLoading,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(12.dp),

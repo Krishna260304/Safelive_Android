@@ -14,7 +14,7 @@ interface AuthApi {
     suspend fun verifyOtp(@Body request: Map<String, String>): ApiResponse<LoginResponse>
 
     @POST("auth/forgot-password")
-    suspend fun forgotPassword(@Body request: Map<String, String>): ApiResponse<Any>
+    suspend fun forgotPassword(@Body request: Map<String, String>): ApiResponse<Map<String, String>>
 
     @POST("auth/reset-password")
     suspend fun resetPassword(@Body request: Map<String, String>): ApiResponse<Any>

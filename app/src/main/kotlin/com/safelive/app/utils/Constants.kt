@@ -5,7 +5,9 @@ import com.safelive.app.BuildConfig
 object Constants {
 
     const val BASE_URL = BuildConfig.BASE_URL
-    const val WS_URL = BuildConfig.WS_URL
+    // The authenticated backend endpoint is /ws/incidents. Keep this in one place
+    // so all clients use the same route.
+    val WS_URL = BuildConfig.WS_URL.trimEnd('/') + "/incidents"
 
     const val CONNECT_TIMEOUT = 30L
     const val READ_TIMEOUT = 30L
@@ -14,7 +16,7 @@ object Constants {
     const val WS_RECONNECT_DELAY_MS = 3000L
     const val WS_MAX_RECONNECT_DELAY_MS = 60000L
     const val WS_HEARTBEAT_INTERVAL_MS = 30000L
-    const val WS_MAX_RETRY_COUNT = 10
+    const val WS_MAX_RETRY_COUNT = 0 // 0 means keep retrying while the session is active
 
     const val PREF_ACCESS_TOKEN = "access_token"
     const val PREF_REFRESH_TOKEN = "refresh_token"

@@ -23,6 +23,18 @@ class GetIncidentDetailUseCase @Inject constructor(
     suspend operator fun invoke(id: String) = repository.getIncidentById(id)
 }
 
+class UpdateIncidentUseCase @Inject constructor(
+    private val repository: IncidentRepository
+) {
+    suspend operator fun invoke(
+        id: String,
+        title: String,
+        description: String,
+        category: String,
+        location: String
+    ) = repository.updateIncident(id, title, description, category, location)
+}
+
 class GetIncidentLogbookUseCase @Inject constructor(
     private val repository: IncidentRepository
 ) {
@@ -43,10 +55,13 @@ class CreateIncidentUseCase @Inject constructor(
         pincode: String?,
         imagePaths: List<String>
     ): Resource<*> {
-        if (title.trim().length < 5) return Resource.Error("Title must be at least 5 characters")
+        if (title.trim().length < 10) return Resource.Error("Title must be at least 10 characters")
+        if (title.trim().length > 100) return Resource.Error("Title must be at most 100 characters")
         if (description.trim().length < 20) return Resource.Error("Description must be at least 20 characters")
+        if (description.trim().length > 1000) return Resource.Error("Description must be at most 1000 characters")
         if (category.isBlank()) return Resource.Error("Please select a category")
-        if (priority.isBlank()) return Resource.Error("Please select priority")
+        if (latitude == null || longitude == null) return Resource.Error("Select a location using live GPS or the map")
+        if (imagePaths.isEmpty()) return Resource.Error("Please upload at least one photo of the incident")
         if (pincode.isNullOrBlank()) return Resource.Error("Please enter pincode")
 
         return repository.createIncident(title, description, category, priority, latitude, longitude, location, pincode, imagePaths)

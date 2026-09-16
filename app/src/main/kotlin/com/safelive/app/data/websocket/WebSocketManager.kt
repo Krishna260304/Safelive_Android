@@ -23,6 +23,8 @@ class WebSocketManager @Inject constructor(
     private var reconnectJob: Job? = null
     private var heartbeatJob: Job? = null
     private var retryCount = 0
+    @Volatile private var manuallyDisconnected = true
+    @Volatile private var tokenForCurrentConnection: String = ""
 
     private val _socketState = MutableStateFlow<SocketState>(SocketState.Disconnected)
     val socketState: StateFlow<SocketState> = _socketState.asStateFlow()
@@ -41,8 +43,9 @@ class WebSocketManager @Inject constructor(
             return
         }
 
+        manuallyDisconnected = false
         coroutineScope.launch {
-            val token = userPreferencesDataStore.accessToken.first()
+            val token = userPreferencesDataStore.accessToken.first()?.trim()
             if (token.isNullOrBlank()) {
                 Timber.w("No token available, skipping WebSocket connection")
                 return@launch
@@ -52,25 +55,24 @@ class WebSocketManager @Inject constructor(
     }
 
     private fun establishConnection(token: String) {
+        tokenForCurrentConnection = token
         _socketState.value = SocketState.Connecting
 
-        val wsUrl = "${Constants.WS_URL}?token=$token"
-        // Only pass the token as a query parameter.
-        // Do NOT add Authorization/Content-Type/Accept headers here —
-        // those break the WebSocket HTTP 101 Upgrade handshake (Cloudflare rejects them).
         val request = Request.Builder()
-            .url(wsUrl)
+            .url(Constants.WS_URL)
+            .addHeader("User-Agent", "SafeLive-Android")
             .build()
 
         webSocket = okHttpClient.newWebSocket(request, createWebSocketListener())
-        Timber.d("WebSocket connecting to $wsUrl")
+        Timber.d("WebSocket connecting")
     }
 
     private fun createWebSocketListener() = object : WebSocketListener() {
 
         override fun onOpen(webSocket: WebSocket, response: Response) {
             Timber.d("WebSocket connected")
-            retryCount = 0
+            // The backend authenticates after the WebSocket upgrade.
+            webSocket.send(gson.toJson(mapOf("type" to "AUTH", "token" to tokenForCurrentConnection)))
             _socketState.value = SocketState.Connected
             startHeartbeat()
         }
@@ -82,14 +84,20 @@ class WebSocketManager @Inject constructor(
 
         override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
             Timber.d("WebSocket closing: $code $reason")
-            webSocket.close(1000, null)
+            if (code == 1008) {
+                // The server uses 1008 for failed AUTH. Retrying the same expired
+                // token forever only creates a connection storm.
+                manuallyDisconnected = true
+                _socketState.value = SocketState.Failed("WebSocket authentication rejected")
+            }
+            webSocket.close(code, reason)
         }
 
         override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
             Timber.d("WebSocket closed: $code $reason")
             _socketState.value = SocketState.Disconnected
             stopHeartbeat()
-            if (code != 1000) {
+            if (!manuallyDisconnected) {
                 scheduleReconnect()
             }
         }
@@ -98,7 +106,14 @@ class WebSocketManager @Inject constructor(
             Timber.e(t, "WebSocket failure")
             _socketState.value = SocketState.Failed(t.message ?: "Unknown error")
             stopHeartbeat()
-            scheduleReconnect()
+
+            // Don't keep retrying on permanent auth failures.
+            if (response?.code == 401 || response?.code == 403) {
+                Timber.w("WebSocket rejected with HTTP ${response.code}; stopping reconnect attempts")
+                return
+            }
+
+            if (!manuallyDisconnected) scheduleReconnect()
         }
     }
 
@@ -200,7 +215,8 @@ class WebSocketManager @Inject constructor(
     }
 
     private fun scheduleReconnect() {
-        if (retryCount >= Constants.WS_MAX_RETRY_COUNT) {
+        if (manuallyDisconnected) return
+        if (Constants.WS_MAX_RETRY_COUNT > 0 && retryCount >= Constants.WS_MAX_RETRY_COUNT) {
             Timber.w("Max reconnect attempts reached")
             _socketState.value = SocketState.Failed("Max reconnect attempts reached")
             return
@@ -223,6 +239,7 @@ class WebSocketManager @Inject constructor(
     }
 
     fun disconnect() {
+        manuallyDisconnected = true
         reconnectJob?.cancel()
         stopHeartbeat()
         webSocket?.close(1000, "User disconnected")

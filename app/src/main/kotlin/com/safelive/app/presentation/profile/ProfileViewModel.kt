@@ -85,6 +85,7 @@ class ProfileViewModel @Inject constructor(
         when (val result = profileRepository.getProfile()) {
             is Resource.Success -> _uiState.update { it.copy(user = result.data, isLoading = false, error = null) }
             is Resource.Error -> _uiState.update { it.copy(error = result.message, isLoading = false) }
+            is Resource.OtpRequired -> Unit
             Resource.Loading -> Unit
         }
     }
@@ -110,6 +111,7 @@ class ProfileViewModel @Inject constructor(
                 when (val result = profileRepository.uploadProfilePicture(compressedFile.absolutePath)) {
                     is Resource.Success -> _uiState.update { it.copy(user = result.data, isLoading = false) }
                     is Resource.Error -> _uiState.update { it.copy(error = result.message, isLoading = false) }
+                    is Resource.OtpRequired -> Unit
                     Resource.Loading -> Unit
                 }
             } catch (e: Exception) {
@@ -200,6 +202,7 @@ class EditProfileViewModel @Inject constructor(
                     )
                 }
 
+                is Resource.OtpRequired -> Unit
                 Resource.Loading -> Unit
             }
         }
@@ -235,6 +238,7 @@ class EditProfileViewModel @Inject constructor(
             )) {
                 is Resource.Success -> _uiState.update { it.copy(isLoading = false, isSuccess = true, error = null) }
                 is Resource.Error -> _uiState.update { it.copy(isLoading = false, error = result.message) }
+                is Resource.OtpRequired -> Unit
                 Resource.Loading -> Unit
             }
         }

@@ -66,6 +66,35 @@ class IncidentRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun updateIncident(
+        id: String,
+        title: String,
+        description: String,
+        category: String,
+        location: String
+    ): Resource<Incident> {
+        return try {
+            val response = incidentApi.updateIncident(
+                id,
+                mapOf(
+                    "title" to title,
+                    "description" to description,
+                    "category" to category,
+                    "location" to location
+                )
+            )
+            if (response.success && response.data != null) {
+                val incident = response.data.toDomain()
+                incidentDao.insertIncident(incident.toEntity())
+                Resource.Success(incident)
+            } else {
+                Resource.Error(response.error ?: "Failed to update incident")
+            }
+        } catch (e: Exception) {
+            Resource.Error(e.localizedMessage ?: "Unknown error")
+        }
+    }
+
     override suspend fun getIncidentLogbook(id: String): Resource<List<LogbookEntry>> {
         return try {
             val response = incidentApi.getIncidentLogbook(id)

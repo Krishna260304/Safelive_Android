@@ -2,6 +2,7 @@ package com.safelive.app.data.remote.api
 
 import com.safelive.app.data.remote.dto.*
 import retrofit2.http.*
+import kotlin.jvm.JvmSuppressWildcards
 
 interface TicketApi {
     @GET("tickets/{id}")
@@ -23,13 +24,13 @@ interface TicketApi {
     @POST("tickets/{id}/assign")
     suspend fun assignTicket(
         @Path("id") id: String,
-        @Body request: Map<String, Any>
+        @Body request: Map<String, @JvmSuppressWildcards Any>
     ): ApiResponse<TicketDto>
 
     @POST("tickets/{id}/progress-update")
     suspend fun updateProgress(
         @Path("id") id: String,
-        @Body request: Map<String, Any>
+        @Body request: Map<String, @JvmSuppressWildcards Any>
     ): ApiResponse<TicketDto>
 
     @POST("tickets/{id}/assign-supervisor")

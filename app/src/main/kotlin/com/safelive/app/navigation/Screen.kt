@@ -1,5 +1,7 @@
 package com.safelive.app.navigation
 
+import android.net.Uri
+
 sealed class Screen(val route: String) {
 
     data object Splash : Screen("splash")
@@ -9,8 +11,10 @@ sealed class Screen(val route: String) {
     data object OtpVerification : Screen("otp_verification/{email}") {
         fun createRoute(email: String) = "otp_verification/$email"
     }
-    data object ResetPassword : Screen("reset_password/{email}/{otp}") {
-        fun createRoute(email: String, otp: String) = "reset_password/$email/$otp"
+    data object ResetPassword : Screen("reset_password?token={token}") {
+        fun createRoute(token: String) = "reset_password?token=${Uri.encode(token)}"
+        // Kept for compatibility with the old in-app OTP route.
+        fun createRoute(email: String, otp: String) = createRoute(otp)
     }
 
     data object CitizenDashboard : Screen("citizen_dashboard")
@@ -38,4 +42,5 @@ sealed class Screen(val route: String) {
     data object TeamManagement : Screen("team_management")
     data object OfficialAlerts : Screen("official_alerts")
     data object OfficialAnalytics : Screen("official_analytics")
+    data object OfficialReports : Screen("official_reports")
 }

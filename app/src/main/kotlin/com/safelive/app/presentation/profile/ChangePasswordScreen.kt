@@ -86,6 +86,7 @@ class ChangePasswordViewModel @Inject constructor(
             when (val result = profileRepository.getProfile()) {
                 is Resource.Success -> _uiState.update { it.copy(twoFactorEnabled = result.data.twoFactorEnabled) }
                 is Resource.Error -> Unit
+                is Resource.OtpRequired -> Unit
                 Resource.Loading -> Unit
             }
         }
@@ -107,6 +108,7 @@ class ChangePasswordViewModel @Inject constructor(
             when (val result = authRepository.requestChangePasswordOtp(_uiState.value.currentPassword)) {
                 is Resource.Success -> _uiState.update { it.copy(isLoading = false, isOtpSent = true, challengeId = result.data, successMessage = "OTP sent to your registered email/phone") }
                 is Resource.Error -> _uiState.update { it.copy(isLoading = false, error = result.message) }
+                is Resource.OtpRequired -> Unit
                 Resource.Loading -> Unit
             }
         }
@@ -132,6 +134,7 @@ class ChangePasswordViewModel @Inject constructor(
             )) {
                 is Resource.Success -> _uiState.update { it.copy(isLoading = false, successMessage = result.data, currentPassword = "", newPassword = "", confirmPassword = "", otp = "", challengeId = null, isOtpSent = false) }
                 is Resource.Error -> _uiState.update { it.copy(isLoading = false, error = result.message) }
+                is Resource.OtpRequired -> Unit
                 Resource.Loading -> Unit
             }
         }
@@ -157,6 +160,7 @@ class ChangePasswordViewModel @Inject constructor(
                     )
                 }
                 is Resource.Error -> _uiState.update { it.copy(isTwoFactorLoading = false, error = result.message) }
+                is Resource.OtpRequired -> Unit
                 Resource.Loading -> Unit
             }
         }
@@ -197,6 +201,7 @@ class ChangePasswordViewModel @Inject constructor(
                     )
                 }
                 is Resource.Error -> _uiState.update { it.copy(isTwoFactorLoading = false, error = result.message) }
+                is Resource.OtpRequired -> Unit
                 Resource.Loading -> Unit
             }
         }

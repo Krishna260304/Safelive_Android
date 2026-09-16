@@ -34,7 +34,16 @@ import com.safelive.app.navigation.Screen
 import com.safelive.app.utils.Constants
 import com.safelive.app.utils.ImageUtils
 import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
 import java.io.File
+
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface ImageUtilsEntryPoint {
+    fun imageUtils(): ImageUtils
+}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
@@ -49,6 +58,7 @@ fun CreateIncidentScreen(
 
     val locationPermission = rememberPermissionState(android.Manifest.permission.ACCESS_FINE_LOCATION)
     val cameraPermission = rememberPermissionState(android.Manifest.permission.CAMERA)
+    var pendingCameraFile by remember { mutableStateOf<File?>(null) }
 
     val galleryLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetMultipleContents()
@@ -66,6 +76,22 @@ fun CreateIncidentScreen(
             tempCameraFile?.absolutePath?.let { path ->
                 viewModel.addImage(path)
             }
+        }
+        tempCameraFile = null
+    }
+
+    LaunchedEffect(cameraPermission.status.isGranted) {
+        val file = pendingCameraFile
+        if (cameraPermission.status.isGranted && file != null) {
+            pendingCameraFile = null
+            tempCameraFile = file
+            cameraLauncher.launch(
+                FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    file
+                )
+            )
         }
     }
 
@@ -225,9 +251,25 @@ fun CreateIncidentScreen(
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             FilledTonalIconButton(
                                 onClick = {
-                                    cameraPermission.launchPermissionRequest()
+                                    val file = EntryPointAccessors.fromApplication(
+                                        context.applicationContext,
+                                        ImageUtilsEntryPoint::class.java
+                                    ).imageUtils().createImageFile()
+                                    if (file == null) {
+                                        return@FilledTonalIconButton
+                                    }
                                     if (cameraPermission.status.isGranted) {
-
+                                        tempCameraFile = file
+                                        cameraLauncher.launch(
+                                            FileProvider.getUriForFile(
+                                                context,
+                                                "${context.packageName}.fileprovider",
+                                                file
+                                            )
+                                        )
+                                    } else {
+                                        pendingCameraFile = file
+                                        cameraPermission.launchPermissionRequest()
                                     }
                                 }
                             ) {

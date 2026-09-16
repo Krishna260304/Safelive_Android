@@ -9,11 +9,14 @@ import com.safelive.app.domain.model.DraftIncident
 import com.safelive.app.domain.model.Incident
 import com.safelive.app.domain.usecase.incident.*
 import com.safelive.app.utils.Resource
+import com.safelive.app.utils.DateUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import javax.inject.Inject
 import com.safelive.app.utils.LocationUtils
 
@@ -59,6 +62,7 @@ class IncidentListViewModel @Inject constructor(
                 when (result) {
                     is Resource.Success -> _uiState.update { it.copy(incidents = result.data, isLoading = false, isRefreshing = false) }
                     is Resource.Error -> _uiState.update { it.copy(error = result.message, isLoading = false, isRefreshing = false) }
+                    is Resource.OtpRequired -> Unit
                     Resource.Loading -> Unit
                 }
             }
@@ -119,7 +123,10 @@ data class IncidentDetailUiState(
     val isLoading: Boolean = false,
     val isLoadingLogbook: Boolean = false,
     val error: String? = null,
-    val officialRole: String = ""
+    val officialRole: String = "",
+    val currentUserType: String = "",
+    val currentUserId: String = "",
+    val isUpdating: Boolean = false
 )
 
 @HiltViewModel
@@ -127,6 +134,7 @@ class IncidentDetailViewModel @Inject constructor(
     private val getIncidentDetailUseCase: GetIncidentDetailUseCase,
     private val getIncidentLogbookUseCase: GetIncidentLogbookUseCase,
     private val updateIncidentStatusUseCase: UpdateIncidentStatusUseCase,
+    private val updateIncidentUseCase: com.safelive.app.domain.usecase.incident.UpdateIncidentUseCase,
     private val webSocketManager: WebSocketManager,
     private val authRepository: com.safelive.app.domain.repository.AuthRepository
 ) : ViewModel() {
@@ -141,8 +149,22 @@ class IncidentDetailViewModel @Inject constructor(
     init {
         observeWebSocketForIncident()
         viewModelScope.launch {
-            authRepository.getOfficialRole().collect { role ->
-                _uiState.update { it.copy(officialRole = role ?: "") }
+            while (isActive) {
+                delay(30_000)
+                currentIncidentId.takeIf { it.isNotBlank() }?.let(::loadIncident)
+            }
+        }
+        viewModelScope.launch {
+            combine(
+                authRepository.getOfficialRole(),
+                authRepository.getUserId(),
+                authRepository.getUserType()
+            ) { role, userId, userType ->
+                Triple(role.orEmpty(), userId.orEmpty(), userType.orEmpty())
+            }.collect { (role, userId, userType) ->
+                _uiState.update {
+                    it.copy(officialRole = role, currentUserId = userId, currentUserType = userType)
+                }
             }
         }
     }
@@ -158,6 +180,7 @@ class IncidentDetailViewModel @Inject constructor(
                     loadLogbook(id)
                 }
                 is Resource.Error -> _uiState.update { it.copy(error = result.message, isLoading = false) }
+                is Resource.OtpRequired -> Unit
                 Resource.Loading -> Unit
             }
         }
@@ -167,12 +190,48 @@ class IncidentDetailViewModel @Inject constructor(
         if (currentIncidentId.isNotBlank()) loadLogbook(currentIncidentId)
     }
 
+    fun canEditIncident(incident: Incident): Boolean {
+        val createdAt = DateUtils.parseIso(incident.createdAt)?.time ?: return false
+        val userId = _uiState.value.currentUserId.trim()
+        val reporterId = incident.reporterId.orEmpty().trim()
+        val status = incident.status.lowercase()
+        return _uiState.value.currentUserType.lowercase() in setOf("local", "citizen") &&
+            userId.isNotBlank() && userId == reporterId &&
+            !incident.officialActionTaken.orFalse() && incident.assignedTo.isNullOrBlank() &&
+            status !in setOf("verified", "in_progress", "resolved") &&
+            System.currentTimeMillis() - createdAt <= 5 * 60 * 1000
+    }
+
+    fun updateIncident(title: String, description: String, category: String, location: String) {
+        val incidentId = currentIncidentId
+        if (incidentId.isBlank()) return
+        if (title.trim().length < 10) {
+            _uiState.update { it.copy(error = "Title must be at least 10 characters") }
+            return
+        }
+        if (category.isBlank() || location.trim().length < 5) {
+            _uiState.update { it.copy(error = "Category and a valid location are required") }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isUpdating = true, error = null) }
+            when (val result = updateIncidentUseCase(incidentId, title.trim(), description.trim(), category, location.trim())) {
+                is Resource.Success -> _uiState.update { it.copy(incident = result.data, isUpdating = false) }
+                is Resource.Error -> _uiState.update { it.copy(isUpdating = false, error = result.message) }
+                Resource.Loading, is Resource.OtpRequired -> Unit
+            }
+        }
+    }
+
+    private fun Boolean?.orFalse() = this == true
+
     private fun loadLogbook(id: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingLogbook = true) }
             when (val result = getIncidentLogbookUseCase(id)) {
                 is Resource.Success -> _uiState.update { it.copy(logbook = result.data, isLoadingLogbook = false) }
                 is Resource.Error -> _uiState.update { it.copy(error = result.message, isLoadingLogbook = false) }
+                is Resource.OtpRequired -> Unit
                 Resource.Loading -> Unit
             }
         }
@@ -283,6 +342,7 @@ class CreateIncidentViewModel @Inject constructor(
                     _uiState.update { it.copy(isLoading = false, isSuccess = true, createdIncidentId = incident?.id) }
                 }
                 is Resource.Error -> _uiState.update { it.copy(isLoading = false, error = result.message) }
+                is Resource.OtpRequired -> Unit
                 Resource.Loading -> Unit
             }
         }

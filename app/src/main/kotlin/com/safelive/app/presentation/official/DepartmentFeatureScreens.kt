@@ -34,7 +34,9 @@ import com.safelive.app.data.remote.api.ProfileApi
 import com.safelive.app.data.remote.dto.UserDto
 import com.safelive.app.data.websocket.SocketEvent
 import com.safelive.app.data.websocket.WebSocketManager
+import com.safelive.app.domain.model.Incident
 import com.safelive.app.domain.repository.PincodeRepository
+import com.safelive.app.domain.usecase.incident.GetIncidentsUseCase
 import com.safelive.app.ui.theme.SuccessGreen
 import com.safelive.app.ui.theme.PriorityCritical
 import com.safelive.app.utils.ValidationUtils
@@ -43,6 +45,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import retrofit2.HttpException
 import javax.inject.Inject
 
@@ -123,6 +127,7 @@ class TeamManagementViewModel @Inject constructor(
                         )
                     }
 
+                    is com.safelive.app.utils.Resource.OtpRequired -> Unit
                     com.safelive.app.utils.Resource.Loading -> Unit
                 }
             }
@@ -649,19 +654,54 @@ data class OfficialAlertsUiState(
 
 @HiltViewModel
 class OfficialAlertsViewModel @Inject constructor(
-    private val webSocketManager: WebSocketManager
+    private val webSocketManager: WebSocketManager,
+    private val getIncidentsUseCase: GetIncidentsUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(OfficialAlertsUiState(isLoading = true))
     val uiState: StateFlow<OfficialAlertsUiState> = _uiState.asStateFlow()
+    private var incidentsJob: Job? = null
 
     init {
         observeWebSocketAlerts()
         // Start with empty live feed — populated by WebSocket events
-        _uiState.update { it.copy(isLoading = false) }
+        refreshIncidents()
+        viewModelScope.launch {
+            while (isActive) {
+                delay(30_000)
+                refreshIncidents()
+            }
+        }
     }
 
     fun setFilter(filter: String) = _uiState.update { it.copy(filter = filter) }
+
+    fun refreshIncidents() {
+        incidentsJob?.cancel()
+        incidentsJob = viewModelScope.launch {
+            getIncidentsUseCase(page = 1).collect { result ->
+                when (result) {
+                    is com.safelive.app.utils.Resource.Success -> {
+                        val alerts = result.data
+                            .sortedByDescending { it.createdAt }
+                            .map { incident ->
+                                AlertItem(
+                                    id = incident.id,
+                                    title = incident.title,
+                                    description = incident.description.orEmpty(),
+                                    type = if (incident.priority.equals("high", true) || incident.priority.equals("critical", true)) "critical" else "standard",
+                                    time = incident.createdAt
+                                )
+                            }
+                        _uiState.update { it.copy(alerts = alerts, isLoading = false) }
+                    }
+                    is com.safelive.app.utils.Resource.Error -> _uiState.update { it.copy(isLoading = false) }
+                    is com.safelive.app.utils.Resource.OtpRequired -> Unit
+                    com.safelive.app.utils.Resource.Loading -> _uiState.update { it.copy(isLoading = true) }
+                }
+            }
+        }
+    }
 
     private fun observeWebSocketAlerts() {
         viewModelScope.launch {
